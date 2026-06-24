@@ -1,0 +1,37 @@
+{
+  "name": "homerepairagent",
+  "version": "1.0.0",
+  "description": "This project is to create a home repair agent",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "diff": "cdk diff",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/patpang71/HomeRepairAgent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/patpang71/HomeRepairAgent/issues"
+  },
+  "homepage": "https://github.com/patpang71/HomeRepairAgent#readme",
+  "devDependencies": {
+    "@aws-sdk/client-bedrock-agent": "^3.1066.0",
+    "@types/node": "^25.9.3",
+    "aws-cdk": "^2.1126.0",
+    "aws-cdk-lib": "^2.258.1",
+    "constructs": "^10.6.0",
+    "esbuild": "^0.28.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
