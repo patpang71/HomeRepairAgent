@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { AWS_REGION, PROJECT_NAME } from '../lib/constants';
+import { ApiStack } from '../lib/api-stack';
 import { KnowledgeBaseStack } from '../lib/knowledge-base-stack';
 import { PdfBucketStack } from '../lib/pdf-bucket-stack';
 import { RagDatabaseStack } from '../lib/rag-database-stack';
@@ -30,5 +31,11 @@ const knowledgeBaseStack = new KnowledgeBaseStack(app, `${PROJECT_NAME}-Knowledg
 });
 knowledgeBaseStack.addDependency(ragDatabaseStack);
 knowledgeBaseStack.addDependency(pdfBucketStack);
+
+const apiStack = new ApiStack(app, `${PROJECT_NAME}-Api`, {
+  env,
+  vpc: vpcStack.vpc,
+});
+apiStack.addDependency(vpcStack);
 
 app.synth();

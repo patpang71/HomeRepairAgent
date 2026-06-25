@@ -21,3 +21,16 @@ export const BEDROCK_EMBEDDING_MODEL_ID = 'amazon.titan-embed-text-v2:0';
 
 // Vector dimensions for Titan Embeddings v2
 export const EMBEDDING_DIMENSIONS = 1024;
+
+// S3 bucket for user-uploaded photos (auto-deleted after 24 h)
+export const UPLOAD_BUCKET_NAME = 'home-repair-agent-uploads';
+
+// Cognito User Pool
+export const COGNITO_USER_POOL_NAME = 'HomeRepairAgentUserPool';
+
+// Cognito hosted-UI domain prefix — must be globally unique across all AWS accounts
+export const COGNITO_DOMAIN_PREFIX = 'home-repair-agent';
+
+// Custom domain
+export const DOMAIN_NAME = 'homerepairus.com';
+export const API_DOMAIN  = `api.${DOMAIN_NAME}`;
