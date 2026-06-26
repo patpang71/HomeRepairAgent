@@ -2,8 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import { AWS_REGION, PROJECT_NAME } from '../lib/constants';
 import { ApiStack } from '../lib/api-stack';
 import { KnowledgeBaseStack } from '../lib/knowledge-base-stack';
+import { LangGraphAgentStack } from '../lib/langgraph-agent-stack';
+import { McpServerStack } from '../lib/mcp-server-stack';
 import { PdfBucketStack } from '../lib/pdf-bucket-stack';
 import { RagDatabaseStack } from '../lib/rag-database-stack';
+import { UserInfoDatabaseStack } from '../lib/user-info-database-stack';
 import { VpcStack } from '../lib/vpc-stack';
 
 const app = new cdk.App();
@@ -32,10 +35,33 @@ const knowledgeBaseStack = new KnowledgeBaseStack(app, `${PROJECT_NAME}-Knowledg
 knowledgeBaseStack.addDependency(ragDatabaseStack);
 knowledgeBaseStack.addDependency(pdfBucketStack);
 
-const apiStack = new ApiStack(app, `${PROJECT_NAME}-Api`, {
+const userInfoDatabaseStack = new UserInfoDatabaseStack(app, `${PROJECT_NAME}-UserInfoDatabase`, {
   env,
   vpc: vpcStack.vpc,
+  dbCluster: ragDatabaseStack.dbCluster,
+  dbSecret: ragDatabaseStack.dbSecret,
 });
-apiStack.addDependency(vpcStack);
+userInfoDatabaseStack.addDependency(ragDatabaseStack);
+
+const mcpServerStack = new McpServerStack(app, `${PROJECT_NAME}-McpServer`, {
+  env,
+  vpc: vpcStack.vpc,
+  dbSecret: ragDatabaseStack.dbSecret,
+});
+mcpServerStack.addDependency(ragDatabaseStack);
+
+const langGraphAgentStack = new LangGraphAgentStack(app, `${PROJECT_NAME}-LangGraphAgent`, {
+  env,
+  vpc: vpcStack.vpc,
+  mcpFunctionArn: mcpServerStack.mcpFn.functionArn,
+});
+langGraphAgentStack.addDependency(vpcStack);
+langGraphAgentStack.addDependency(mcpServerStack);
+
+const apiStack = new ApiStack(app, `${PROJECT_NAME}-Api`, {
+  env,
+  agentFn: langGraphAgentStack.agentFn,
+});
+apiStack.addDependency(langGraphAgentStack);
 
 app.synth();

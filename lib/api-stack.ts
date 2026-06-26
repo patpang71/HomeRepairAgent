@@ -5,10 +5,8 @@ import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as apigwv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -17,15 +15,15 @@ import { Construct } from 'constructs';
 import {
   API_DOMAIN,
   AWS_REGION,
-  BEDROCK_AGENT_MODEL_ID,
   COGNITO_DOMAIN_PREFIX,
   COGNITO_USER_POOL_NAME,
   DOMAIN_NAME,
+  HOSTED_ZONE_ID,
   UPLOAD_BUCKET_NAME,
 } from './constants';
 
 interface ApiStackProps extends cdk.StackProps {
-  vpc: ec2.Vpc;
+  agentFn: lambda.IFunction;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -35,7 +33,7 @@ export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, { ...props, env: { ...props.env, region: AWS_REGION } });
 
-    const { vpc } = props;
+    const { agentFn } = props;
 
     // ── Cognito User Pool ────────────────────────────────────────────────────
     this.userPool = new cognito.UserPool(this, 'UserPool', {
@@ -108,10 +106,11 @@ export class ApiStack extends cdk.Stack {
     });
 
     // ── Lambda: POST /upload-url ─────────────────────────────────────────────
-    const uploadUrlFn = new NodejsFunction(this, 'UploadUrlFn', {
-      entry: path.join(__dirname, '../lambdas/upload-url/index.ts'),
+    const uploadUrlFn = new PythonFunction(this, 'UploadUrlFn', {
+      entry: path.join(__dirname, '../lambdas/upload-url'),
+      index: 'handler.py',
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.PYTHON_3_12,
       timeout: cdk.Duration.seconds(10),
       environment: {
         UPLOAD_BUCKET_NAME: uploadBucket.bucketName,
@@ -119,33 +118,8 @@ export class ApiStack extends cdk.Stack {
     });
     uploadBucket.grantPut(uploadUrlFn);
 
-    // ── Lambda: POST /chat ───────────────────────────────────────────────────
-    const chatLambdaSg = new ec2.SecurityGroup(this, 'ChatLambdaSg', {
-      vpc,
-      description: 'Chat Lambda — outbound to Bedrock and RDS VPC endpoints',
-      allowAllOutbound: true,
-    });
-
-    const chatFn = new NodejsFunction(this, 'ChatFn', {
-      entry: path.join(__dirname, '../lambdas/chat/index.ts'),
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X,
-      timeout: cdk.Duration.seconds(60),
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [chatLambdaSg],
-      environment: {
-        UPLOAD_BUCKET_NAME: uploadBucket.bucketName,
-        BEDROCK_AGENT_MODEL_ID,
-      },
-    });
-
-    uploadBucket.grantRead(chatFn);
-
-    chatFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['bedrock:InvokeModel', 'bedrock:InvokeAgent'],
-      resources: ['*'],
-    }));
+    // Allow the LangGraph agent Lambda to read photos from the upload bucket
+    uploadBucket.grantRead(agentFn);
 
     // ── HTTP API Gateway ─────────────────────────────────────────────────────
     this.api = new apigwv2.HttpApi(this, 'HttpApi', {
@@ -173,14 +147,15 @@ export class ApiStack extends cdk.Stack {
     this.api.addRoutes({
       path: '/chat',
       methods: [apigwv2.HttpMethod.POST],
-      integration: new apigwv2Integrations.HttpLambdaIntegration('ChatIntegration', chatFn),
+      integration: new apigwv2Integrations.HttpLambdaIntegration('ChatIntegration', agentFn),
       authorizer,
     });
 
     // ── Custom Domain (api.homerepairus.com) ─────────────────────────────────
-    // Domain was registered in Route 53 — look up the existing hosted zone.
-    const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
-      domainName: DOMAIN_NAME,
+    // Domain was registered in Route 53 — reference the existing hosted zone directly.
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId: HOSTED_ZONE_ID,
+      zoneName: DOMAIN_NAME,
     });
 
     // ACM issues a free TLS certificate; DNS validation auto-creates the required

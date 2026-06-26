@@ -25,7 +25,11 @@
   },
   "homepage": "https://github.com/patpang71/HomeRepairAgent#readme",
   "devDependencies": {
+    "@aws-cdk/aws-lambda-python-alpha": "^2.258.1-alpha.0",
     "@aws-sdk/client-bedrock-agent": "^3.1066.0",
+    "@aws-sdk/client-secrets-manager": "^3.1066.0",
+    "@types/pg": "^8.11.14",
+    "pg": "^8.14.1",
     "@aws-sdk/client-s3": "^3.1066.0",
     "@aws-sdk/s3-request-presigner": "^3.1066.0",
     "@types/aws-lambda": "^8.10.149",

@@ -31,6 +31,10 @@ export const COGNITO_USER_POOL_NAME = 'HomeRepairAgentUserPool';
 // Cognito hosted-UI domain prefix — must be globally unique across all AWS accounts
 export const COGNITO_DOMAIN_PREFIX = 'home-repair-agent';
 
+// UserInfo database schema name within the existing Aurora cluster
+export const USER_INFO_SCHEMA = 'userinfo';
+
 // Custom domain
-export const DOMAIN_NAME = 'homerepairus.com';
-export const API_DOMAIN  = `api.${DOMAIN_NAME}`;
+export const DOMAIN_NAME    = 'homerepairsus.com';
+export const API_DOMAIN     = `api.${DOMAIN_NAME}`;
+export const HOSTED_ZONE_ID = 'Z06200071CTT0TYQJ5X8D';
