@@ -118,9 +118,6 @@ export class ApiStack extends cdk.Stack {
     });
     uploadBucket.grantPut(uploadUrlFn);
 
-    // Allow the LangGraph agent Lambda to read photos from the upload bucket
-    uploadBucket.grantRead(agentFn);
-
     // ── HTTP API Gateway ─────────────────────────────────────────────────────
     this.api = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: 'HomeRepairAgentApi',
