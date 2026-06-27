@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -49,6 +50,46 @@ export class KnowledgeBaseStack extends cdk.Stack {
       ],
     }));
 
+    kbRole.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        'rds:DescribeDBClusters',
+        'rds-data:ExecuteStatement',
+        'rds-data:BatchExecuteStatement',
+      ],
+      resources: [dbCluster.clusterArn],
+    }));
+
+    // ── RAG DB schema init ───────────────────────────────────────────────────
+    // Creates bedrock_integration schema + bedrock_kb table via RDS Data API.
+    // Runs once on stack creation; subsequent deploys skip it.
+    const initRagDbFn = new NodejsFunction(this, 'InitRagDbFn', {
+      entry: path.join(__dirname, '../lambdas/init-rag-db/index.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        CLUSTER_ARN: dbCluster.clusterArn,
+        SECRET_ARN: dbSecret.secretArn,
+        DATABASE_NAME: RAG_DB_NAME.toLowerCase(),
+        EMBEDDING_DIMENSIONS: String(EMBEDDING_DIMENSIONS),
+      },
+    });
+
+    initRagDbFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['rds-data:ExecuteStatement'],
+      resources: [dbCluster.clusterArn],
+    }));
+    dbSecret.grantRead(initRagDbFn);
+
+    const initProvider = new cr.Provider(this, 'InitRagDbProvider', {
+      onEventHandler: initRagDbFn,
+    });
+
+    const schemaInit = new cdk.CustomResource(this, 'InitRagDbSchema', {
+      serviceToken: initProvider.serviceToken,
+      properties: { SchemaVersion: '2' },
+    });
+
     this.knowledgeBase = new bedrock.CfnKnowledgeBase(this, 'KnowledgeBase', {
       name: KNOWLEDGE_BASE_NAME,
       roleArn: kbRole.roleArn,
@@ -79,6 +120,20 @@ export class KnowledgeBaseStack extends cdk.Stack {
         },
       },
     });
+
+    // kbRole.addToPolicy creates a separate AWS::IAM::Policy resource (DefaultPolicy).
+    // CfnKnowledgeBase only gets a DependsOn on the Role itself (via roleArn), not on the
+    // policy resource, so CloudFormation can start creating the KB before the policy is
+    // attached. Bedrock validates rds:DescribeDBClusters at creation time and fails.
+    // This explicit dependency ensures the policy is fully attached first.
+    // Schema must exist before Bedrock validates the storage configuration
+    this.knowledgeBase.node.addDependency(schemaInit);
+
+    // DefaultPolicy (from addToPolicy) is a separate CFN resource — KB must also wait for it
+    const defaultPolicy = kbRole.node.tryFindChild('DefaultPolicy');
+    if (defaultPolicy) {
+      this.knowledgeBase.node.addDependency(defaultPolicy);
+    }
 
     this.dataSource = new bedrock.CfnDataSource(this, 'PdfDataSource', {
       name: 'HomeRepairPdfSource',

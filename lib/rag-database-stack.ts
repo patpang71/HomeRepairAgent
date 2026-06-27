@@ -50,6 +50,7 @@ export class RagDatabaseStack extends cdk.Stack {
       storageEncrypted: true,
       backup: { retention: cdk.Duration.days(7) },
       removalPolicy: cdk.RemovalPolicy.SNAPSHOT,
+      enableDataApi: true,
     });
 
     this.dbSecret = this.dbCluster.secret!;
