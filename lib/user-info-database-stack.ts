@@ -20,11 +20,12 @@ export class UserInfoDatabaseStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: UserInfoDatabaseStackProps) {
     super(scope, id, { ...props, env: { ...props.env, region: AWS_REGION } });
 
-    const { vpc, dbCluster, dbSecret } = props;
+    const { vpc, dbSecret } = props;
 
     // Lambda runs inside the VPC so it can reach Aurora on port 5432 directly —
     // no bastion host or DBeaver tunnel needed.
     const initFn = new NodejsFunction(this, 'InitUserDbFn', {
+      functionName: 'HomeRepairAgent-init-user-db',
       entry: path.join(__dirname, '../lambdas/init-user-db/index.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,

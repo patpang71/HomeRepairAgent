@@ -63,6 +63,7 @@ export class KnowledgeBaseStack extends cdk.Stack {
     // Creates bedrock_integration schema + bedrock_kb table via RDS Data API.
     // Runs once on stack creation; subsequent deploys skip it.
     const initRagDbFn = new NodejsFunction(this, 'InitRagDbFn', {
+      functionName: 'HomeRepairAgent-init-rag-db',
       entry: path.join(__dirname, '../lambdas/init-rag-db/index.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -157,6 +158,7 @@ export class KnowledgeBaseStack extends cdk.Stack {
 
     // Lambda that calls StartIngestionJob when a PDF lands in S3 (via EventBridge)
     const triggerFn = new NodejsFunction(this, 'KbSyncTrigger', {
+      functionName: 'HomeRepairAgent-trigger-kb-sync',
       entry: path.join(__dirname, '../lambdas/trigger-kb-sync/index.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
