@@ -1,6 +1,7 @@
 import json
 import uuid
 
+from conversation import save_conversation
 from graph import get_graph
 from session import load_session, save_session
 
@@ -32,6 +33,13 @@ def handler(event, context):
         state['photo_key'] = photo_key
 
     result = get_graph().invoke(state)
+
+    user_id = (result.get('user_profile') or {}).get('userId')
+    if user_id and result.get('messages'):
+        try:
+            save_conversation(session_id, user_id, result['messages'])
+        except Exception as e:
+            print(f'Conversation save error: {e}')
 
     # Persist everything except the per-invocation input fields
     save_state = {k: v for k, v in result.items() if k != 'user_message'}

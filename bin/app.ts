@@ -54,6 +54,7 @@ const langGraphAgentStack = new LangGraphAgentStack(app, `${PROJECT_NAME}-LangGr
   env,
   vpc: vpcStack.vpc,
   mcpFunctionArn: mcpServerStack.mcpFn.functionArn,
+  dbSecret: ragDatabaseStack.dbSecret,
 });
 langGraphAgentStack.addDependency(vpcStack);
 langGraphAgentStack.addDependency(mcpServerStack);

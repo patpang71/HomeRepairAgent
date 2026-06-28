@@ -14,8 +14,7 @@ interface DbSecret {
 }
 
 export const handler = async (event: { RequestType: string }): Promise<void> => {
-  // Only run schema init on stack creation, not on every update/delete
-  if (event.RequestType !== 'Create') return;
+  if (event.RequestType === 'Delete') return;
 
   const secretResponse = await secretsManager.send(
     new GetSecretValueCommand({ SecretId: process.env.DB_SECRET_ARN! }),

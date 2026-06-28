@@ -29,3 +29,20 @@ CREATE TABLE IF NOT EXISTS userinfo."Project"
     "ZipCode"          VARCHAR(20),
     "CreatedAt"        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS userinfo."Conversation"
+(
+    "ConversationId"  SERIAL       PRIMARY KEY,
+    "UserId"          INT          NOT NULL REFERENCES userinfo."User"("UserId"),
+    "SessionId"       VARCHAR(255) NOT NULL UNIQUE,
+    "CreatedAt"       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS userinfo."Message"
+(
+    "MessageId"       SERIAL       PRIMARY KEY,
+    "ConversationId"  INT          NOT NULL REFERENCES userinfo."Conversation"("ConversationId"),
+    "Role"            VARCHAR(20)  NOT NULL,
+    "Content"         TEXT         NOT NULL,
+    "CreatedAt"       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

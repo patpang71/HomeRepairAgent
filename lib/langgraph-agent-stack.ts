@@ -4,6 +4,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { Construct } from 'constructs';
 import { AWS_REGION, BEDROCK_AGENT_MODEL_ID, UPLOAD_BUCKET_NAME } from './constants';
@@ -11,6 +12,7 @@ import { AWS_REGION, BEDROCK_AGENT_MODEL_ID, UPLOAD_BUCKET_NAME } from './consta
 interface LangGraphAgentStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
   mcpFunctionArn: string;
+  dbSecret: secretsmanager.ISecret;
 }
 
 export class LangGraphAgentStack extends cdk.Stack {
@@ -19,7 +21,7 @@ export class LangGraphAgentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LangGraphAgentStackProps) {
     super(scope, id, { ...props, env: { ...props.env, region: AWS_REGION } });
 
-    const { vpc, mcpFunctionArn } = props;
+    const { vpc, mcpFunctionArn, dbSecret } = props;
 
     // ── Session table ────────────────────────────────────────────────────────
     const sessionTable = new dynamodb.Table(this, 'SessionTable', {
@@ -54,10 +56,12 @@ export class LangGraphAgentStack extends cdk.Stack {
         SESSION_TABLE_NAME: sessionTable.tableName,
         UPLOAD_BUCKET_NAME,
         TAVILY_API_KEY_PARAM: '/HomeRepairAgent/Tavily/ApiKey',
+        DB_SECRET_ARN: dbSecret.secretArn,
       },
     });
 
     sessionTable.grantReadWriteData(this.agentFn);
+    dbSecret.grantRead(this.agentFn);
 
     this.agentFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['lambda:InvokeFunction'],
