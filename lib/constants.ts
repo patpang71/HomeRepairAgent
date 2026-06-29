@@ -34,6 +34,9 @@ export const COGNITO_DOMAIN_PREFIX = 'home-repair-agent';
 // UserInfo database schema name within the existing Aurora cluster
 export const USER_INFO_SCHEMA = 'userinfo';
 
+// iOS app bundle identifier — used as the JWT audience for Apple identity token validation
+export const IOS_BUNDLE_ID = 'com.homerepairsus.app';
+
 // Custom domain
 export const DOMAIN_NAME    = 'homerepairsus.com';
 export const API_DOMAIN     = `api.${DOMAIN_NAME}`;

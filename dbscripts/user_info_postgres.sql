@@ -47,22 +47,18 @@ CREATE TABLE IF NOT EXISTS userinfo."Message"
     "CreatedAt"       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-    "Username"    VARCHAR(50)  NOT NULL,
-    "AppleId"     VARCHAR(255) UNIQUE,
-    "GoogleId"    VARCHAR(255) UNIQUE,
-    "AvatarUrl"   VARCHAR(500),
-    "Email"       VARCHAR(100) NOT NULL UNIQUE,
-    "FirstName"   VARCHAR(50),
-    "LastName"    VARCHAR(50),
-    "CreatedAt"   TIMESTAMP    NO
-
-INSERT INTO userinfo."User" 
+INSERT INTO userinfo."User"
 ("Username", "AppleId", "Email", "FirstName", "LastName")
 VALUES ('patpang71', 'patpang71@gmail.com', 'patpang71@gmail.com', 'John', 'Doe')
 ON CONFLICT ("Email") DO NOTHING;
 
-INSERT INTO userinfo.Project 
+INSERT INTO userinfo."Project"
 ("UserId", "IsDefaultProject", "IsActive", "ProjectName", "JobType", "Description", "StreetAddress", "StreetAddress2", "City", "State", "ZipCode")
-VALUES (1, TRUE, TRUE, 'Andrea', 'MISC', 
-'Handyman job', '4735 Andrea Way', '', 'Union City', 'CA', '94587')
-ON CONFLICT ("ProjectName") DO NOTHING;
+SELECT "UserId", TRUE, TRUE, 'Andrea', 'MISC', 'Handyman job', '4735 Andrea Way', '', 'Union City', 'CA', '94587'
+FROM userinfo."User"
+WHERE "Email" = 'patpang71@gmail.com'
+AND NOT EXISTS (
+    SELECT 1 FROM userinfo."Project" WHERE "ProjectName" = 'Andrea' AND "UserId" = (
+        SELECT "UserId" FROM userinfo."User" WHERE "Email" = 'patpang71@gmail.com'
+    )
+);
