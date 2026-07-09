@@ -15,6 +15,9 @@ From their reply, determine:
 Respond with JSON only (no other text):
 {"action": "select" | "new" | "unclear", "projectIndex": <integer or null>}"""
 
+_NEW_PROJECT_CONFIRM_PROMPT = """Classify the user's reply to the question "Would you like to add a new project?".
+Respond with exactly one word — YES, NO, or UNCLEAR."""
+
 _COLLECT_PROMPT = """You are collecting information to create a new home repair project.
 Required fields: Project Name, Job Type (e.g. PLUMBING, ELECTRICAL, HVAC, FLOORING, ROOFING, PAINTING, MISC), Zip Code.
 Optional fields: Street Address, City, State, Description.
@@ -33,6 +36,8 @@ def project_update_node(state: AgentState) -> AgentState:
 
     if stage == 'show_projects':
         return _show_projects(state)
+    if stage == 'awaiting_new_project_confirmation':
+        return _handle_new_project_confirmation(state)
     if stage == 'awaiting_selection':
         return _handle_selection(state)
     if stage == 'collecting_new_project':
@@ -58,6 +63,19 @@ def _show_projects(state: AgentState) -> AgentState:
             'pending_project': {},
         }
 
+    if len(projects) == 1:
+        response = (
+            f"You don't have any other projects — **{projects[0]['projectName']}** is the only one on file. "
+            f"Would you like to add a new project?"
+        )
+        history = state['messages'] + [{'role': 'assistant', 'content': response}]
+        return {
+            **state,
+            'messages': history,
+            'response': response,
+            'project_update_stage': 'awaiting_new_project_confirmation',
+        }
+
     lines = [
         f"{i + 1}. **{p['projectName']}** ({p.get('jobType', 'MISC')}) — "
         f"{p.get('streetAddress', 'no address')}, {p.get('city', '')}, {p.get('state', '')}"
@@ -76,6 +94,45 @@ def _show_projects(state: AgentState) -> AgentState:
         'response': response,
         'project_update_stage': 'awaiting_selection',
     }
+
+
+# ── Stage: confirm adding a new project when only one exists ───────────────
+
+def _handle_new_project_confirmation(state: AgentState) -> AgentState:
+    llm = get_llm()
+    lc_messages = [
+        SystemMessage(content=_NEW_PROJECT_CONFIRM_PROMPT),
+        HumanMessage(content=state['user_message'] or ''),
+    ]
+    classification = llm.invoke(lc_messages).content.strip().upper()
+
+    history = state['messages'] + [{'role': 'user', 'content': state['user_message']}]
+
+    if 'YES' in classification:
+        response = "Great! What would you like to name it?"
+        history = history + [{'role': 'assistant', 'content': response}]
+        return {
+            **state,
+            'messages': history,
+            'response': response,
+            'project_update_stage': 'collecting_new_project',
+            'pending_project': {},
+        }
+
+    if 'NO' in classification:
+        response = "No problem — let's get back to it. What's the home repair issue?"
+        history = history + [{'role': 'assistant', 'content': response}]
+        return {
+            **state,
+            'messages': history,
+            'response': response,
+            'current_agent': 'home_repair',
+            'project_update_stage': None,
+        }
+
+    response = "Sorry, I didn't catch that — would you like to add a new project? Please answer yes or no."
+    history = history + [{'role': 'assistant', 'content': response}]
+    return {**state, 'messages': history, 'response': response}
 
 
 # ── Stage: process the user's pick ──────────────────────────────────────────
