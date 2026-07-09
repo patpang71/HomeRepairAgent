@@ -41,7 +41,12 @@ def home_repair_node(state: AgentState) -> AgentState:
     llm = get_llm()
 
     lc_messages = [SystemMessage(content=_SYSTEM)]
-    for msg in state['messages']:
+    history = state['messages']
+    # Bedrock Converse requires the first non-system turn to be from the user —
+    # drop any leading assistant messages (e.g. the initial greeting).
+    while history and history[0]['role'] != 'user':
+        history = history[1:]
+    for msg in history:
         if msg['role'] == 'user':
             lc_messages.append(HumanMessage(content=msg['content']))
         elif msg['role'] == 'assistant':

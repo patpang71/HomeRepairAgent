@@ -148,7 +148,12 @@ def _collect_project_info(state: AgentState) -> AgentState:
     lc_messages = [SystemMessage(content=system)]
 
     # Include recent conversation for natural follow-ups
-    for msg in state['messages'][-8:]:
+    history = state['messages'][-8:]
+    # Bedrock Converse requires the first non-system turn to be from the user —
+    # drop any leading assistant messages left over from the slice window.
+    while history and history[0]['role'] != 'user':
+        history = history[1:]
+    for msg in history:
         if msg['role'] == 'user':
             lc_messages.append(HumanMessage(content=msg['content']))
         elif msg['role'] == 'assistant':
