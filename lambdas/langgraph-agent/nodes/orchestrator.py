@@ -80,6 +80,23 @@ def _classify_response(state: AgentState) -> AgentState:
         return {**state, 'messages': history, 'response': response, 'current_agent': 'home_repair'}
 
     if 'NO' in classification:
+        projects = state['user_profile'].get('projects', [])
+
+        if len(projects) == 1:
+            response = (
+                f"You don't have any other projects — **{projects[0]['projectName']}** is the only one on file. "
+                f"Would you like to add a new project?"
+            )
+            history = history + [{'role': 'assistant', 'content': response}]
+            logger.info('orchestrator NO answer with single project sessionId=%s', state['session_id'])
+            return {
+                **state,
+                'messages': history,
+                'response': response,
+                'current_agent': 'project_update',
+                'project_update_stage': 'awaiting_new_project_confirmation',
+            }
+
         response = "No problem — let me pull up your projects so we can switch to the right one."
         history = history + [{'role': 'assistant', 'content': response}]
         return {
