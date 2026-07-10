@@ -28,7 +28,9 @@ If Zip Code is not yet collected, ask for it specifically before finishing.
 When you have Project Name, Job Type, AND Zip Code, respond with JSON only:
 {{"ready": true, "project": {{"projectName": "...", "jobType": "...", "streetAddress": "...", "city": "...", "state": "...", "zipCode": "...", "description": "..."}}}}
 
-Otherwise ask a natural conversational question to gather missing required fields. Do NOT output JSON when still gathering."""
+Otherwise ask a natural conversational question to gather missing required fields. Do NOT output JSON when still gathering.
+If you need to show the user the fields collected so far, present them as a markdown table (columns: Field, Value) —
+never show raw JSON or key-value code blocks to the user."""
 
 
 def project_update_node(state: AgentState) -> AgentState:
