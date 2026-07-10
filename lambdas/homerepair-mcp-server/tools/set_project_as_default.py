@@ -1,4 +1,8 @@
+import logging
+
 from db import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def set_project_as_default(user_id: int, project_id: int) -> dict:
@@ -34,9 +38,14 @@ def set_project_as_default(user_id: int, project_id: int) -> dict:
                 )
 
         conn.commit()
+        logger.info(
+            'set_project_as_default: userId=%s projectId=%s (was %s)',
+            user_id, project_id, original_default_id,
+        )
         return {'message': 'Default project updated successfully', 'projectId': project_id}
 
     except Exception as e:
         # Rollback restores the original IsDefaultProject values atomically
         conn.rollback()
+        logger.exception('set_project_as_default failed userId=%s projectId=%s', user_id, project_id)
         return {'message': str(e)}

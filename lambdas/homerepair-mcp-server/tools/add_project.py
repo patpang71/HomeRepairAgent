@@ -1,4 +1,8 @@
+import logging
+
 from db import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def add_project(
@@ -14,6 +18,7 @@ def add_project(
     state: str = None,
 ) -> dict:
     if not zip_code:
+        logger.warning('add_project called without zipCode userId=%s', user_id)
         return {'message': 'zipCode is required'}
 
     conn = get_connection()
@@ -31,8 +36,10 @@ def add_project(
             ))
             project_id = cur.fetchone()[0]
         conn.commit()
+        logger.info('add_project: created projectId=%s for userId=%s', project_id, user_id)
         return {'message': 'Project added successfully', 'projectId': project_id}
 
     except Exception as e:
         conn.rollback()
+        logger.exception('add_project failed userId=%s', user_id)
         return {'message': str(e)}

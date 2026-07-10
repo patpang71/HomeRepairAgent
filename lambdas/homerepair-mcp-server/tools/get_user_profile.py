@@ -1,8 +1,13 @@
+import logging
+
 from db import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_profile(apple_id: str = None, google_id: str = None) -> dict:
     if not apple_id and not google_id:
+        logger.warning('get_user_profile called without appleId or googleId')
         return {'message': 'Either appleId or googleId is required'}
 
     try:
@@ -30,6 +35,7 @@ def get_user_profile(apple_id: str = None, google_id: str = None) -> dict:
             rows = cur.fetchall()
 
         if not rows:
+            logger.info('get_user_profile: no user found for %s=%s', 'appleId' if apple_id else 'googleId', param)
             return {'message': 'User not found'}
 
         first = rows[0]
@@ -60,7 +66,9 @@ def get_user_profile(apple_id: str = None, google_id: str = None) -> dict:
                 'projectId':        row[18],
             })
 
+        logger.info('get_user_profile: found userId=%s with %d project(s)', result['userId'], len(result['projects']))
         return result
 
     except Exception as e:
+        logger.exception('get_user_profile failed')
         return {'message': str(e)}

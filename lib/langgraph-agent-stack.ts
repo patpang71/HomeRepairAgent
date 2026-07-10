@@ -57,6 +57,7 @@ export class LangGraphAgentStack extends cdk.Stack {
         UPLOAD_BUCKET_NAME,
         TAVILY_API_KEY_PARAM: '/HomeRepairAgent/Tavily/ApiKey',
         DB_SECRET_ARN: dbSecret.secretArn,
+        LOG_LEVEL: 'INFO',
       },
     });
 

@@ -1,8 +1,11 @@
 import json
+import logging
 import os
 
 import boto3
 import psycopg2
+
+logger = logging.getLogger(__name__)
 
 _connection = None
 _secret = None
@@ -26,9 +29,10 @@ def get_connection():
                 cur.execute('SELECT 1')
             return _connection
     except Exception:
-        pass
+        logger.info('DB connection stale or unavailable, reconnecting')
 
     secret = _get_secret()
+    logger.info('Opening DB connection to %s/%s', secret['host'], secret['dbname'])
     _connection = psycopg2.connect(
         host=secret['host'],
         port=int(secret.get('port', 5432)),

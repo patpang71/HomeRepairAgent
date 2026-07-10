@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import os
 
 import boto3
@@ -7,6 +8,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from llm import get_llm
 from state import AgentState
+
+logger = logging.getLogger(__name__)
 
 _s3 = boto3.client('s3')
 UPLOAD_BUCKET = os.environ.get('UPLOAD_BUCKET_NAME', '')
@@ -37,6 +40,7 @@ Set should_search=true only when you know both the specific part of the home AND
 
 
 def home_repair_node(state: AgentState) -> AgentState:
+    logger.info('home_repair_node sessionId=%s hasPhoto=%s', state['session_id'], bool(state.get('photo_key')))
     _ensure_tavily_key()
     llm = get_llm()
 
@@ -63,7 +67,10 @@ def home_repair_node(state: AgentState) -> AgentState:
     try:
         decision = json.loads(decision_raw)
     except Exception:
+        logger.warning('Search-decision JSON parse failed sessionId=%s raw=%r', state['session_id'], decision_raw)
         decision = {'should_search': False, 'ready_to_answer': False}
+
+    logger.info('home_repair search decision sessionId=%s decision=%s', state['session_id'], decision)
 
     search_context = ''
     if decision.get('should_search') and decision.get('search_query'):
@@ -76,6 +83,7 @@ def home_repair_node(state: AgentState) -> AgentState:
         ))
 
     response = llm.invoke(lc_messages).content
+    logger.info('home_repair_node responding sessionId=%s responseLen=%d', state['session_id'], len(response))
 
     history = state['messages'] + [
         {'role': 'user', 'content': state['user_message']},
@@ -102,19 +110,23 @@ def _build_content(state: AgentState):
             {'type': 'text', 'text': text},
         ]
     except Exception:
+        logger.exception('Failed to load photo from S3 key=%s', photo_key)
         return text
 
 
 def _tavily_search(query: str) -> str:
+    logger.info('Tavily search query=%r', query)
     try:
         from langchain_community.tools.tavily_search import TavilySearchResults
         tool = TavilySearchResults(max_results=3)
         results = tool.invoke(query)
+        logger.info('Tavily search returned %d result(s)', len(results))
         return '\n\n'.join(
             f"[{r.get('title', 'Result')}]\n{r.get('content', '')}"
             for r in results
         )
     except Exception as e:
+        logger.exception('Tavily search failed query=%r', query)
         return f"(Search unavailable: {e})"
 
 
@@ -127,5 +139,6 @@ def _ensure_tavily_key():
         param = ssm.get_parameter(Name=_TAVILY_KEY_PARAM, WithDecryption=True)
         os.environ['TAVILY_API_KEY'] = param['Parameter']['Value']
         _tavily_key_loaded = True
+        logger.info('Loaded Tavily API key from SSM param=%s', _TAVILY_KEY_PARAM)
     except Exception:
-        pass
+        logger.exception('Failed to load Tavily API key from SSM param=%s', _TAVILY_KEY_PARAM)

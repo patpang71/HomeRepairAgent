@@ -1,8 +1,12 @@
+import logging
+
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from llm import get_llm
 from mcp_client import call_mcp_tool
 from state import AgentState
+
+logger = logging.getLogger(__name__)
 
 _CLASSIFY_PROMPT = """Classify the user's reply to the question "Are you working on [project name] today?".
 Respond with exactly one word — YES, NO, or IRRELEVANT:
@@ -12,6 +16,7 @@ Respond with exactly one word — YES, NO, or IRRELEVANT:
 
 
 def orchestrator_node(state: AgentState) -> AgentState:
+    logger.info('orchestrator_node sessionId=%s hasProfile=%s', state['session_id'], state['user_profile'] is not None)
     if state['user_profile'] is None:
         return _initial_greeting(state)
     return _classify_response(state)
@@ -21,6 +26,7 @@ def _initial_greeting(state: AgentState) -> AgentState:
     profile = call_mcp_tool('get_user_profile', {'appleId': state['apple_id']})
 
     if 'message' in profile:
+        logger.warning('Profile load failed sessionId=%s: %s', state['session_id'], profile['message'])
         response = "Welcome to Home Repair Assistant! I couldn't load your profile — please contact support."
         return {**state, 'user_profile': {}, 'response': response}
 
@@ -64,6 +70,7 @@ def _classify_response(state: AgentState) -> AgentState:
         HumanMessage(content=state['user_message'] or ''),
     ]
     classification = llm.invoke(lc_messages).content.strip().upper()
+    logger.info('orchestrator classification sessionId=%s result=%s', state['session_id'], classification)
 
     history = state['messages'] + [{'role': 'user', 'content': state['user_message']}]
 

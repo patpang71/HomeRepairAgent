@@ -1,10 +1,13 @@
 import json
+import logging
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from llm import get_llm
 from mcp_client import call_mcp_tool
 from state import AgentState
+
+logger = logging.getLogger(__name__)
 
 _SELECT_PROMPT = """The user was shown a numbered list of their home repair projects and asked to pick one or create a new one.
 From their reply, determine:
@@ -35,6 +38,7 @@ never show raw JSON or key-value code blocks to the user."""
 
 def project_update_node(state: AgentState) -> AgentState:
     stage = state.get('project_update_stage') or 'show_projects'
+    logger.info('project_update_node sessionId=%s stage=%s', state['session_id'], stage)
 
     if stage == 'show_projects':
         return _show_projects(state)
@@ -107,6 +111,7 @@ def _handle_new_project_confirmation(state: AgentState) -> AgentState:
         HumanMessage(content=state['user_message'] or ''),
     ]
     classification = llm.invoke(lc_messages).content.strip().upper()
+    logger.info('new-project confirmation sessionId=%s result=%s', state['session_id'], classification)
 
     history = state['messages'] + [{'role': 'user', 'content': state['user_message']}]
 
@@ -153,7 +158,10 @@ def _handle_selection(state: AgentState) -> AgentState:
     try:
         decision = json.loads(raw)
     except Exception:
+        logger.warning('Selection JSON parse failed sessionId=%s raw=%r', state['session_id'], raw)
         decision = {'action': 'unclear'}
+
+    logger.info('project selection sessionId=%s decision=%s', state['session_id'], decision)
 
     history = state['messages'] + [{'role': 'user', 'content': state['user_message']}]
 
@@ -226,6 +234,7 @@ def _collect_project_info(state: AgentState) -> AgentState:
     try:
         data = json.loads(raw)
         if data.get('ready') and data.get('project'):
+            logger.info('project fields complete sessionId=%s', state['session_id'])
             return _save_new_project(state, data['project'], history)
     except Exception:
         pass
@@ -257,7 +266,9 @@ def _save_new_project(state: AgentState, project_data: dict, history: list) -> A
         'isDefaultProject': True,
     })
 
-    if 'projectId' in add_result:
+    if 'projectId' not in add_result:
+        logger.error('add_project failed sessionId=%s userId=%s result=%s', state['session_id'], user_id, add_result)
+    else:
         call_mcp_tool('set_project_as_default', {
             'userId': user_id,
             'projectId': add_result['projectId'],

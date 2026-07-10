@@ -1,8 +1,13 @@
 import json
+import logging
+import os
 
 from tools.add_project import add_project
 from tools.get_user_profile import get_user_profile
 from tools.set_project_as_default import set_project_as_default
+
+logging.getLogger().setLevel(os.environ.get('LOG_LEVEL', 'INFO').upper())
+logger = logging.getLogger(__name__)
 
 TOOLS = [
     {
@@ -53,6 +58,7 @@ TOOLS = [
 
 def handler(event, context):
     method = event.get('method')
+    logger.info('Incoming MCP request method=%s', method)
 
     if method == 'tools/list':
         return {'tools': TOOLS}
@@ -61,6 +67,7 @@ def handler(event, context):
         params = event.get('params', {})
         tool_name = params.get('name')
         args = params.get('arguments', {})
+        logger.info('tools/call name=%s args=%s', tool_name, args)
 
         if tool_name == 'get_user_profile':
             result = get_user_profile(
@@ -89,8 +96,11 @@ def handler(event, context):
             )
 
         else:
+            logger.warning('Unknown tool requested: %s', tool_name)
             result = {'message': f'Unknown tool: {tool_name}'}
 
+        logger.info('tools/call name=%s result=%s', tool_name, result)
         return {'content': [{'type': 'text', 'text': json.dumps(result)}]}
 
+    logger.warning('Unknown MCP method: %s', method)
     return {'message': f'Unknown method: {method}'}

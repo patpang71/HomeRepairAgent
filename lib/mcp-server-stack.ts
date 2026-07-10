@@ -33,6 +33,7 @@ export class McpServerStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         DB_SECRET_ARN: dbSecret.secretArn,
+        LOG_LEVEL: 'INFO',
       },
     });
 
