@@ -183,9 +183,8 @@ def _handle_selection(state: AgentState) -> AgentState:
                     **state,
                     'messages': history,
                     'response': response,
-                    'current_agent': 'orchestrator',
+                    'current_agent': 'home_repair',
                     'project_update_stage': None,
-                    'user_profile': None,  # force profile refresh on next orchestrator turn
                 }
         # Index out of range or parse failed — fall through to unclear
 
@@ -284,8 +283,7 @@ def _save_new_project(state: AgentState, project_data: dict, history: list) -> A
         **state,
         'messages': history,
         'response': response,
-        'current_agent': 'orchestrator',
+        'current_agent': 'home_repair',
         'project_update_stage': None,
         'pending_project': None,
-        'user_profile': None,  # refresh profile on next orchestrator turn
     }
