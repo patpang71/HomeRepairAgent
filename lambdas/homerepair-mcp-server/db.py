@@ -9,6 +9,24 @@ logger = logging.getLogger(__name__)
 
 _connection = None
 _secret = None
+_logging_cursor_class = None
+
+
+def _get_logging_cursor_class():
+    # Built lazily (not at import time) since psycopg2.extensions.cursor is a
+    # C extension type only meaningful once the real driver is loaded.
+    global _logging_cursor_class
+    if _logging_cursor_class is None:
+        class _LoggingCursor(psycopg2.extensions.cursor):
+            def execute(self, query, vars=None):
+                try:
+                    logger.info('SQL: %s', self.mogrify(query, vars).decode('utf-8', errors='replace'))
+                except Exception:
+                    logger.info('SQL: %s vars=%s', query, vars)
+                return super().execute(query, vars)
+
+        _logging_cursor_class = _LoggingCursor
+    return _logging_cursor_class
 
 
 def _get_secret() -> dict:
@@ -41,5 +59,6 @@ def get_connection():
         password=secret['password'],
         sslmode='require',
         connect_timeout=10,
+        cursor_factory=_get_logging_cursor_class(),
     )
     return _connection
