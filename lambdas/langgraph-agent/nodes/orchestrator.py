@@ -80,31 +80,57 @@ def _classify_response(state: AgentState) -> AgentState:
         return {**state, 'messages': history, 'response': response, 'current_agent': 'home_repair'}
 
     if 'NO' in classification:
-        projects = state['user_profile'].get('projects', [])
+        # Refetch the profile so we're working off current project data, not
+        # whatever was cached in state at session start.
+        profile = call_mcp_tool('get_user_profile', {'appleId': state['apple_id']})
+        if 'message' in profile:
+            logger.warning('Profile refresh failed sessionId=%s: %s', state['session_id'], profile['message'])
+            profile = state['user_profile']
 
-        if len(projects) == 1:
+        other_projects = [p for p in profile.get('projects', []) if p.get('isDefaultProject') != 'true']
+        logger.info(
+            'orchestrator NO answer sessionId=%s otherProjectCount=%d',
+            state['session_id'], len(other_projects),
+        )
+
+        if not other_projects:
+            default_project = next(
+                (p for p in profile.get('projects', []) if p.get('isDefaultProject') == 'true'),
+                None,
+            )
+            default_name = default_project['projectName'] if default_project else 'your current project'
             response = (
-                f"You don't have any other projects — **{projects[0]['projectName']}** is the only one on file. "
+                f"You don't have any other projects — **{default_name}** is the only one on file. "
                 f"Would you like to add a new project?"
             )
             history = history + [{'role': 'assistant', 'content': response}]
-            logger.info('orchestrator NO answer with single project sessionId=%s', state['session_id'])
             return {
                 **state,
+                'user_profile': profile,
                 'messages': history,
                 'response': response,
                 'current_agent': 'project_update',
                 'project_update_stage': 'awaiting_new_project_confirmation',
             }
 
-        response = "No problem — let me pull up your projects so we can switch to the right one."
+        lines = [
+            f"{i + 1}. **{p['projectName']}** ({p.get('jobType', 'MISC')}) — "
+            f"{p.get('streetAddress', 'no address')}, {p.get('city', '')}, {p.get('state', '')}"
+            for i, p in enumerate(other_projects)
+        ]
+        project_list = '\n'.join(lines)
+        response = (
+            f"No problem — here are your other projects:\n\n{project_list}\n\n"
+            f"Which one would you like to switch to? Or say **new project** to add a new one."
+        )
         history = history + [{'role': 'assistant', 'content': response}]
         return {
             **state,
+            'user_profile': profile,
             'messages': history,
             'response': response,
             'current_agent': 'project_update',
-            'project_update_stage': 'show_projects',
+            'project_update_stage': 'awaiting_selection',
         }
 
     # IRRELEVANT — ask again

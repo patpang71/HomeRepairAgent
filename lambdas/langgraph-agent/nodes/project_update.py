@@ -69,9 +69,15 @@ def _show_projects(state: AgentState) -> AgentState:
             'pending_project': {},
         }
 
-    if len(projects) == 1:
+    other_projects = [p for p in projects if p.get('isDefaultProject') != 'true']
+
+    if not other_projects:
+        default_project = next(
+            (p for p in projects if p.get('isDefaultProject') == 'true'),
+            projects[0],
+        )
         response = (
-            f"You don't have any other projects — **{projects[0]['projectName']}** is the only one on file. "
+            f"You don't have any other projects — **{default_project['projectName']}** is the only one on file. "
             f"Would you like to add a new project?"
         )
         history = state['messages'] + [{'role': 'assistant', 'content': response}]
@@ -85,11 +91,11 @@ def _show_projects(state: AgentState) -> AgentState:
     lines = [
         f"{i + 1}. **{p['projectName']}** ({p.get('jobType', 'MISC')}) — "
         f"{p.get('streetAddress', 'no address')}, {p.get('city', '')}, {p.get('state', '')}"
-        for i, p in enumerate(projects)
+        for i, p in enumerate(other_projects)
     ]
     project_list = '\n'.join(lines)
     response = (
-        f"Here are your current projects:\n\n{project_list}\n\n"
+        f"Here are your other projects:\n\n{project_list}\n\n"
         f"Which project would you like to set as your default? "
         f"Or say **new project** to add a new one."
     )
@@ -147,7 +153,9 @@ def _handle_new_project_confirmation(state: AgentState) -> AgentState:
 def _handle_selection(state: AgentState) -> AgentState:
     llm = get_llm()
     profile = state.get('user_profile') or {}
-    projects = profile.get('projects', [])
+    # The shown list (orchestrator's NO branch, or _show_projects below) always
+    # excludes the current default — indices here must match that same list.
+    projects = [p for p in profile.get('projects', []) if p.get('isDefaultProject') != 'true']
 
     lc_messages = [
         SystemMessage(content=_SELECT_PROMPT),
