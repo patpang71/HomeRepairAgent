@@ -18,8 +18,11 @@ class AgentState(TypedDict):
 
     # Persisted across turns
     user_profile: Optional[dict]
-    current_agent: str           # 'orchestrator' | 'home_repair' | 'project_update'
+    current_agent: str           # 'initial_verification' | 'orchestrator' | 'home_repair' | 'project_update'
     messages: list               # list of Message dicts
+
+    # Orchestrator sub-state
+    orchestrator_stage: Optional[str]     # None | 'awaiting_intent'
 
     # Project update sub-state
     project_update_stage: Optional[str]   # 'show_projects' | 'awaiting_selection' | 'collecting_new_project'

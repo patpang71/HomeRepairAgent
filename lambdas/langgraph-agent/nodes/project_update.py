@@ -49,7 +49,7 @@ def project_update_node(state: AgentState) -> AgentState:
     if stage == 'collecting_new_project':
         return _collect_project_info(state)
 
-    return {**state, 'current_agent': 'orchestrator', 'response': "Let me take you back to the main menu."}
+    return {**state, 'current_agent': 'orchestrator', 'orchestrator_stage': None, 'response': "Let me take you back to the main menu."}
 
 
 # ── Stage: show projects list ────────────────────────────────────────────────
