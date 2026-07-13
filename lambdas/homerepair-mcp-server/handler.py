@@ -3,6 +3,7 @@ import logging
 import os
 
 from tools.add_project import add_project
+from tools.add_user import add_user
 from tools.get_user_profile import get_user_profile
 from tools.set_project_as_default import set_project_as_default
 
@@ -39,6 +40,20 @@ TOOLS = [
                 'zipCode':          {'type': 'string', 'description': 'Required'},
             },
             'required': ['userId', 'zipCode'],
+        },
+    },
+    {
+        'name': 'add_user',
+        'description': 'Create a new user account if one does not already exist for the given email.',
+        'inputSchema': {
+            'type': 'object',
+            'properties': {
+                'email':     {'type': 'string', 'description': 'Required. Also used as the username.'},
+                'appleId':   {'type': 'string', 'description': 'Apple ID of the user'},
+                'firstName': {'type': 'string'},
+                'lastName':  {'type': 'string'},
+            },
+            'required': ['email', 'appleId', 'firstName', 'lastName'],
         },
     },
     {
@@ -87,6 +102,14 @@ def handler(event, context):
                 street_address2=args.get('streetAddress2'),
                 city=args.get('city'),
                 state=args.get('state'),
+            )
+
+        elif tool_name == 'add_user':
+            result = add_user(
+                email=args['email'],
+                apple_id=args['appleId'],
+                first_name=args['firstName'],
+                last_name=args['lastName'],
             )
 
         elif tool_name == 'set_project_as_default':
