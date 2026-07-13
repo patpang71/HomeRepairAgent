@@ -1,0 +1,25 @@
+# Your Team ID — visible top-right in the developer portal
+aws ssm put-parameter \
+  --name /HomeRepairAgent/Apple/TeamId \
+  --value "H5YM9W2Z3U" \
+  --type String
+
+# The Services ID identifier you created
+aws ssm put-parameter \
+  --name /HomeRepairAgent/Apple/ServicesId \
+  --value "com.yourname.homerepairagent.signin" \
+  --type String
+
+# The Key ID shown on the key detail page
+aws ssm put-parameter \
+  --name /HomeRepairAgent/Apple/KeyId \
+  --value "527LN97436" \
+  --type String
+
+# The private key file contents
+aws secretsmanager create-secret \
+  --name HomeRepairAgent/Apple/PrivateKey \
+  --secret-string "$(cat ~/Downloads/AuthKey_527LN97436.p8)"
+
+Once those four commands succeed, you're ready to run cdk deploy HomeRepairAgent-Api and Cognito will be fully configured with Apple Sign In. Let me know when you have the .p8 file downloaded and we can run the deploy together.
+

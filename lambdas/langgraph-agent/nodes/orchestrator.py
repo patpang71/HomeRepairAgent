@@ -15,7 +15,7 @@ Respond with exactly one word — PROJECT, QUESTION, or IRRELEVANT:
 - QUESTION: user wants to ask about a home repair issue, or is ready to describe their problem
 - IRRELEVANT: the reply does not answer the question"""
 
-_ASK_INTENT_RESPONSE = (
+ASK_INTENT_RESPONSE = (
     "Would you like to switch to a different project, or do you have a home repair question I can help with?"
 )
 
@@ -31,11 +31,11 @@ def orchestrator_node(state: AgentState) -> AgentState:
 
 
 def _ask_intent(state: AgentState) -> AgentState:
-    history = state['messages'] + [{'role': 'assistant', 'content': _ASK_INTENT_RESPONSE}]
+    history = state['messages'] + [{'role': 'assistant', 'content': ASK_INTENT_RESPONSE}]
     return {
         **state,
         'messages': history,
-        'response': _ASK_INTENT_RESPONSE,
+        'response': ASK_INTENT_RESPONSE,
         'current_agent': 'orchestrator',
         'orchestrator_stage': 'awaiting_intent',
     }
@@ -123,7 +123,7 @@ def _classify_intent(state: AgentState) -> AgentState:
         }
 
     # IRRELEVANT — ask again
-    response = f"Sorry, I didn't quite catch that. {_ASK_INTENT_RESPONSE}"
+    response = f"Sorry, I didn't quite catch that. {ASK_INTENT_RESPONSE}"
     history = history + [{'role': 'assistant', 'content': response}]
     return {
         **state,

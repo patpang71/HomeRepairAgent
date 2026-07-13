@@ -1,6 +1,7 @@
 import logging
 
 from mcp_client import call_mcp_tool
+from nodes.orchestrator import ASK_INTENT_RESPONSE
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -29,16 +30,17 @@ def initial_verification_node(state: AgentState) -> AgentState:
             f"at {default_project.get('streetAddress', 'no address on file')}, "
             f"{default_project.get('city', '')}, {default_project.get('state', '')}"
         )
-        response = (
+        greeting = (
             f"Hi {first_name}! Welcome back.\n\n"
             f"Your current default project is:\n{project_line}"
         )
     else:
-        response = (
+        greeting = (
             f"Hi {first_name}! Welcome to Home Repair Assistant. "
             f"You don't have a default project set yet."
         )
 
+    response = f"{greeting}\n\n{ASK_INTENT_RESPONSE}"
     history = state['messages'] + [{'role': 'assistant', 'content': response}]
     return {
         **state,
@@ -46,5 +48,5 @@ def initial_verification_node(state: AgentState) -> AgentState:
         'messages': history,
         'response': response,
         'current_agent': 'orchestrator',
-        'orchestrator_stage': None,
+        'orchestrator_stage': 'awaiting_intent',
     }
