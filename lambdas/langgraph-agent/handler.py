@@ -38,6 +38,7 @@ def handler(event, context):
         'project_update_stage': None,
         'pending_project': None,
         'pending_search_result': None,
+        'home_repair_intro_shown': False,
         'photo_key': None,
         'user_message': '',
         'response': '',

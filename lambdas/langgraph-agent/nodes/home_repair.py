@@ -89,6 +89,13 @@ def home_repair_node(state: AgentState) -> AgentState:
     response = llm.invoke(lc_messages).content
     logger.info('home_repair_node responding sessionId=%s responseLen=%d', state['session_id'], len(response))
 
+    intro_shown = state.get('home_repair_intro_shown', False)
+    if not intro_shown:
+        intro = _resolution_intro(state.get('user_profile'))
+        if intro:
+            response = f"{intro}\n\n{response}"
+        intro_shown = True
+
     current_agent = 'home_repair'
     pending_search_result = None
 
@@ -119,6 +126,7 @@ def home_repair_node(state: AgentState) -> AgentState:
         'response': response,
         'current_agent': current_agent,
         'pending_search_result': pending_search_result,
+        'home_repair_intro_shown': intro_shown,
     }
 
 
@@ -128,6 +136,24 @@ def _default_project_id(profile: dict):
     if default:
         return default.get('projectId')
     return projects[0]['projectId'] if projects else None
+
+
+def _resolution_intro(profile: dict):
+    projects = (profile or {}).get('projects', [])
+    default = next((p for p in projects if p.get('isDefaultProject') == 'true'), None)
+    if not default:
+        default = projects[0] if projects else None
+    if not default:
+        return None
+
+    resolution_detail = default.get('resolutionDetail')
+    if not resolution_detail:
+        return None
+
+    return (
+        f"Before we dive in — here's the last resolution on file for "
+        f"**{default.get('projectName', 'your project')}**: {resolution_detail}"
+    )
 
 
 def _build_content(state: AgentState):

@@ -61,6 +61,7 @@ def _classify_intent(state: AgentState) -> AgentState:
             'response': response,
             'current_agent': 'home_repair',
             'orchestrator_stage': None,
+            'home_repair_intro_shown': False,
         }
 
     if 'PROJECT' in classification:

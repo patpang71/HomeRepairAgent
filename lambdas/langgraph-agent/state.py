@@ -31,5 +31,9 @@ class AgentState(TypedDict):
     # Check-result sub-state — the search Q&A awaiting a yes/no from the user
     pending_search_result: Optional[dict]  # {'projectId', 'searchResultId', 'searchQuestion', 'searchResult'}
 
+    # Home-repair sub-state — whether the last-resolution intro paragraph has
+    # already been shown for the current issue (reset when a new issue starts)
+    home_repair_intro_shown: Optional[bool]
+
     # Output — set by whichever node runs
     response: str
