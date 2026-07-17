@@ -37,6 +37,7 @@ def handler(event, context):
         'orchestrator_stage': None,
         'project_update_stage': None,
         'pending_project': None,
+        'pending_search_result': None,
         'photo_key': None,
         'user_message': '',
         'response': '',

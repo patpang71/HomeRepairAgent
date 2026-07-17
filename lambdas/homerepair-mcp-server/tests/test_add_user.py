@@ -41,7 +41,7 @@ class TestAddUser:
 
         insert_call = mock_cursor.execute.call_args_list[1]
         params = insert_call[0][1]
-        assert params == ('new@test.com', 'apple123', 'new@test.com', 'John', 'Doe')
+        assert params == ('apple123', 'new@test.com', 'John', 'Doe')
 
     def test_returns_error_when_email_already_exists(self, mock_conn, mock_cursor):
         mock_cursor.fetchone.return_value = (1,)

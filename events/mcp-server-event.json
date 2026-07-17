@@ -1,0 +1,9 @@
+{
+  "method": "tools/call",
+  "params": {
+    "name": "get_user_profile",
+    "arguments": {
+      "appleId": "patpang71@gmail.com"
+    }
+  }
+}

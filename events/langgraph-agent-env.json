@@ -1,0 +1,11 @@
+{
+  "LangGraphAgentFn254EF3B1": {
+    "BEDROCK_MODEL_ID": "amazon.nova-pro-v1:0",
+    "MCP_FUNCTION_NAME": "HomeRepairAgent-McpServer",
+    "SESSION_TABLE_NAME": "HomeRepairAgentSessions",
+    "UPLOAD_BUCKET_NAME": "home-repair-agent-uploads",
+    "TAVILY_API_KEY_PARAM": "/HomeRepairAgent/Tavily/ApiKey",
+    "DB_SECRET_ARN": "arn:aws:secretsmanager:us-east-1:PLACEHOLDER:secret:REPLACE_ME",
+    "LOG_LEVEL": "DEBUG"
+  }
+}

@@ -7,6 +7,7 @@ import boto3
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from llm import get_llm
+from mcp_client import call_mcp_tool
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -72,9 +73,12 @@ def home_repair_node(state: AgentState) -> AgentState:
 
     logger.info('home_repair search decision sessionId=%s decision=%s', state['session_id'], decision)
 
+    preference = (state.get('user_profile') or {}).get('preference', 'CONCISE')
+
+    search_query = decision.get('search_query')
     search_context = ''
-    if decision.get('should_search') and decision.get('search_query'):
-        search_context = _tavily_search(decision['search_query'])
+    if decision.get('should_search') and search_query:
+        search_context = _tavily_search(search_query, preference)
 
     if search_context:
         lc_messages.append(HumanMessage(
@@ -85,11 +89,45 @@ def home_repair_node(state: AgentState) -> AgentState:
     response = llm.invoke(lc_messages).content
     logger.info('home_repair_node responding sessionId=%s responseLen=%d', state['session_id'], len(response))
 
+    current_agent = 'home_repair'
+    pending_search_result = None
+
+    if search_context:
+        project_id = _default_project_id(state.get('user_profile'))
+        if project_id:
+            save_result = call_mcp_tool('save_search_result', {
+                'projectId': project_id,
+                'searchQuestion': search_query,
+                'searchResult': search_context,
+            })
+            pending_search_result = {
+                'projectId': project_id,
+                'searchResultId': save_result.get('searchResultId'),
+                'searchQuestion': search_query,
+                'searchResult': search_context,
+            }
+            response = f"{response}\n\nDoes this resolve your problem?"
+            current_agent = 'check_result'
+
     history = state['messages'] + [
         {'role': 'user', 'content': state['user_message']},
         {'role': 'assistant', 'content': response},
     ]
-    return {**state, 'messages': history, 'response': response, 'current_agent': 'home_repair'}
+    return {
+        **state,
+        'messages': history,
+        'response': response,
+        'current_agent': current_agent,
+        'pending_search_result': pending_search_result,
+    }
+
+
+def _default_project_id(profile: dict):
+    projects = (profile or {}).get('projects', [])
+    default = next((p for p in projects if p.get('isDefaultProject') == 'true'), None)
+    if default:
+        return default.get('projectId')
+    return projects[0]['projectId'] if projects else None
 
 
 def _build_content(state: AgentState):
@@ -114,15 +152,31 @@ def _build_content(state: AgentState):
         return text
 
 
-def _tavily_search(query: str) -> str:
-    logger.info('Tavily search query=%r', query)
+def _tavily_search(query: str, preference: str = 'CONCISE') -> str:
+    # CONCISE users get the top 2 results with a basic (short) summary;
+    # DETAIL users get more results with advanced depth and full raw content.
+    concise = str(preference).upper() != 'DETAIL'
+    logger.info('Tavily search query=%r preference=%s', query, preference)
     try:
         from langchain_community.tools.tavily_search import TavilySearchResults
-        tool = TavilySearchResults(max_results=3)
+        if concise:
+            tool = TavilySearchResults(max_results=2, search_depth='basic')
+        else:
+            tool = TavilySearchResults(
+                max_results=5,
+                search_depth='advanced',
+                include_raw_content=True,
+            )
         results = tool.invoke(query)
         logger.info('Tavily search returned %d result(s)', len(results))
+
+        def _body(r):
+            if concise:
+                return r.get('content', '')
+            return r.get('raw_content') or r.get('content', '')
+
         return '\n\n'.join(
-            f"[{r.get('title', 'Result')}]\n{r.get('content', '')}"
+            f"[{r.get('title', 'Result')}]\n{_body(r)}"
             for r in results
         )
     except Exception as e:

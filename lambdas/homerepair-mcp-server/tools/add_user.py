@@ -23,10 +23,10 @@ def add_user(email: str, apple_id: str, first_name: str, last_name: str) -> dict
 
             cur.execute("""
                 INSERT INTO userinfo."User"
-                    ("Username", "AppleId", "GoogleId", "AvatarUrl", "Email", "FirstName", "LastName")
-                VALUES (%s, %s, '', '', %s, %s, %s)
+                    ("AppleId", "GoogleId", "AvatarUrl", "Email", "FirstName", "LastName")
+                VALUES (%s, '', '', %s, %s, %s)
                 RETURNING "UserId"
-            """, (email, apple_id, email, first_name, last_name))
+            """, (apple_id, email, first_name, last_name))
             user_id = cur.fetchone()[0]
         conn.commit()
         logger.info('add_user: created userId=%s email=%s', user_id, email)

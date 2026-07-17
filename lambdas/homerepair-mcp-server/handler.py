@@ -5,7 +5,10 @@ import os
 from tools.add_project import add_project
 from tools.add_user import add_user
 from tools.get_user_profile import get_user_profile
+from tools.save_search_result import save_search_result
+from tools.set_preference import set_preference
 from tools.set_project_as_default import set_project_as_default
+from tools.update_resolution import update_resolution
 
 logging.getLogger().setLevel(os.environ.get('LOG_LEVEL', 'INFO').upper())
 logger = logging.getLogger(__name__)
@@ -48,7 +51,7 @@ TOOLS = [
         'inputSchema': {
             'type': 'object',
             'properties': {
-                'email':     {'type': 'string', 'description': 'Required. Also used as the username.'},
+                'email':     {'type': 'string', 'description': 'Required. Unique identifier for the user.'},
                 'appleId':   {'type': 'string', 'description': 'Apple ID of the user'},
                 'firstName': {'type': 'string'},
                 'lastName':  {'type': 'string'},
@@ -66,6 +69,44 @@ TOOLS = [
                 'projectId': {'type': 'integer'},
             },
             'required': ['userId', 'projectId'],
+        },
+    },
+    {
+        'name': 'set_preference',
+        'description': 'Set a user\'s search result preference — CONCISE (top 2 results) or DETAIL (full results).',
+        'inputSchema': {
+            'type': 'object',
+            'properties': {
+                'userId':     {'type': 'integer'},
+                'preference': {'type': 'string', 'enum': ['CONCISE', 'DETAIL']},
+            },
+            'required': ['userId', 'preference'],
+        },
+    },
+    {
+        'name': 'save_search_result',
+        'description': 'Save a Tavily search question and result against a project.',
+        'inputSchema': {
+            'type': 'object',
+            'properties': {
+                'projectId':      {'type': 'integer'},
+                'searchQuestion': {'type': 'string'},
+                'searchResult':   {'type': 'string'},
+            },
+            'required': ['projectId', 'searchQuestion', 'searchResult'],
+        },
+    },
+    {
+        'name': 'update_resolution',
+        'description': 'Update a project\'s resolution summary and resolved status.',
+        'inputSchema': {
+            'type': 'object',
+            'properties': {
+                'projectId':         {'type': 'integer'},
+                'resolutionDetail':  {'type': 'string'},
+                'resolved':          {'type': 'boolean'},
+            },
+            'required': ['projectId', 'resolutionDetail', 'resolved'],
         },
     },
 ]
@@ -116,6 +157,26 @@ def handler(event, context):
             result = set_project_as_default(
                 user_id=args['userId'],
                 project_id=args['projectId'],
+            )
+
+        elif tool_name == 'set_preference':
+            result = set_preference(
+                user_id=args['userId'],
+                preference=args['preference'],
+            )
+
+        elif tool_name == 'save_search_result':
+            result = save_search_result(
+                project_id=args['projectId'],
+                search_question=args['searchQuestion'],
+                search_result=args['searchResult'],
+            )
+
+        elif tool_name == 'update_resolution':
+            result = update_resolution(
+                project_id=args['projectId'],
+                resolution_detail=args['resolutionDetail'],
+                resolved=args['resolved'],
             )
 
         else:

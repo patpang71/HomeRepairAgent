@@ -12,13 +12,13 @@ import pytest
 # Column order matches the SELECT in get_user_profile.py
 SAMPLE_ROW = (
     1,             # 0  UserId
-    'patpang',     # 1  Username
-    'apple123',    # 2  AppleId
-    None,          # 3  GoogleId
-    None,          # 4  AvatarUrl
-    'p@test.com',  # 5  Email
-    'Kai',         # 6  FirstName
-    'Tai',         # 7  LastName
+    'apple123',    # 1  AppleId
+    None,          # 2  GoogleId
+    None,          # 3  AvatarUrl
+    'p@test.com',  # 4  Email
+    'Kai',         # 5  FirstName
+    'Tai',         # 6  LastName
+    'CONCISE',     # 7  Preference
     True,          # 8  IsDefaultProject
     True,          # 9  IsActive
     'My House',    # 10 ProjectName
@@ -29,7 +29,9 @@ SAMPLE_ROW = (
     'Union City',  # 15 City
     'CA',          # 16 State
     '94587',       # 17 ZipCode
-    101,           # 18 ProjectId
+    None,          # 18 ResolutionDetail
+    False,         # 19 Resolved
+    101,           # 20 ProjectId
 )
 
 

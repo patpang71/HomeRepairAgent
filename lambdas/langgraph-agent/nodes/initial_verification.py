@@ -18,7 +18,7 @@ def initial_verification_node(state: AgentState) -> AgentState:
         # Leave current_agent as 'initial_verification' so the next turn retries.
         return {**state, 'user_profile': None, 'messages': history, 'response': response}
 
-    first_name = profile.get('firstName') or profile.get('userName', 'there')
+    first_name = profile.get('firstName') or 'there'
     default_project = next(
         (p for p in profile.get('projects', []) if p.get('isDefaultProject') == 'true'),
         None,

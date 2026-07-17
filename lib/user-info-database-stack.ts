@@ -62,7 +62,7 @@ export class UserInfoDatabaseStack extends cdk.Stack {
     new cdk.CustomResource(this, 'InitUserDbResource', {
       serviceToken: provider.serviceToken,
       // Changing this version string forces the schema to re-run if you ever need it
-      properties: { SchemaVersion: '2' },
+      properties: { SchemaVersion: '3' },
     });
 
     new cdk.CfnOutput(this, 'UserInfoSchemaStatus', {

@@ -1,0 +1,6 @@
+{
+  "McpServerFn5AA70A92": {
+    "DB_SECRET_ARN": "arn:aws:secretsmanager:us-east-1:PLACEHOLDER:secret:REPLACE_ME",
+    "LOG_LEVEL": "DEBUG"
+  }
+}

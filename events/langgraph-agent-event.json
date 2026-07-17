@@ -1,0 +1,36 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /chat",
+  "rawPath": "/chat",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "apiId": "local",
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "patpang71@gmail.com"
+        },
+        "scopes": null
+      }
+    },
+    "domainName": "localhost",
+    "http": {
+      "method": "POST",
+      "path": "/chat",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "sam-local"
+    },
+    "requestId": "local-debug-request",
+    "routeKey": "POST /chat",
+    "stage": "$default",
+    "time": "12/Jul/2026:00:00:00 +0000",
+    "timeEpoch": 1752278400000
+  },
+  "body": "{\"message\": \"hello\", \"sessionId\": \"local-debug-session\"}",
+  "isBase64Encoded": false
+}

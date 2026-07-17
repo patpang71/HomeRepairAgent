@@ -18,7 +18,7 @@ class AgentState(TypedDict):
 
     # Persisted across turns
     user_profile: Optional[dict]
-    current_agent: str           # 'initial_verification' | 'orchestrator' | 'home_repair' | 'project_update'
+    current_agent: str           # 'initial_verification' | 'orchestrator' | 'home_repair' | 'project_update' | 'check_result'
     messages: list               # list of Message dicts
 
     # Orchestrator sub-state
@@ -27,6 +27,9 @@ class AgentState(TypedDict):
     # Project update sub-state
     project_update_stage: Optional[str]   # 'show_projects' | 'awaiting_selection' | 'collecting_new_project'
     pending_project: Optional[dict]        # accumulated fields for new project creation
+
+    # Check-result sub-state — the search Q&A awaiting a yes/no from the user
+    pending_search_result: Optional[dict]  # {'projectId', 'searchResultId', 'searchQuestion', 'searchResult'}
 
     # Output — set by whichever node runs
     response: str

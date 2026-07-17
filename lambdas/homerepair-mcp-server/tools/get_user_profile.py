@@ -22,11 +22,12 @@ def get_user_profile(apple_id: str = None, google_id: str = None) -> dict:
 
             cur.execute(f"""
                 SELECT
-                    u."UserId", u."Username", u."AppleId", u."GoogleId", u."AvatarUrl",
-                    u."Email", u."FirstName", u."LastName",
+                    u."UserId", u."AppleId", u."GoogleId", u."AvatarUrl",
+                    u."Email", u."FirstName", u."LastName", u."Preference",
                     p."IsDefaultProject", p."IsActive", p."ProjectName", p."JobType",
                     p."Description", p."StreetAddress", p."StreetAddress2",
-                    p."City", p."State", p."ZipCode", p."ProjectId"
+                    p."City", p."State", p."ZipCode", p."ResolutionDetail",
+                    p."Resolved", p."ProjectId"
                 FROM userinfo."User" u
                 JOIN userinfo."Project" p ON u."UserId" = p."UserId"
                 WHERE {where}
@@ -34,36 +35,50 @@ def get_user_profile(apple_id: str = None, google_id: str = None) -> dict:
 
             rows = cur.fetchall()
 
-        if not rows:
-            logger.info('get_user_profile: no user found for %s=%s', 'appleId' if apple_id else 'googleId', param)
-            return {'message': 'User not found'}
+            if not rows:
+                logger.info('get_user_profile: no user found for %s=%s', 'appleId' if apple_id else 'googleId', param)
+                return {'message': 'User not found'}
+
+            project_ids = [row[20] for row in rows]
+            search_result_ids_by_project = {pid: [] for pid in project_ids}
+            cur.execute(
+                'SELECT "ProjectId", "SearchResultId" FROM userinfo."SearchResult" '
+                'WHERE "ProjectId" = ANY(%s) ORDER BY "SearchResultId"',
+                (project_ids,),
+            )
+            for project_id, search_result_id in cur.fetchall():
+                search_result_ids_by_project.setdefault(project_id, []).append(search_result_id)
 
         first = rows[0]
         result = {
-            'userId':    first[0],
-            'userName':  first[1],
-            'appleId':   first[2] or '',
-            'googleId':  first[3] or '',
-            'avatarUrl': first[4] or '',
-            'email':     first[5],
-            'firstName': first[6] or '',
-            'lastName':  first[7] or '',
-            'projects':  [],
+            'userId':     first[0],
+            'appleId':    first[1] or '',
+            'googleId':   first[2] or '',
+            'avatarUrl':  first[3] or '',
+            'email':      first[4],
+            'firstName':  first[5] or '',
+            'lastName':   first[6] or '',
+            'preference': first[7] or 'CONCISE',
+            'projects':   [],
         }
 
         for row in rows:
+            project_id = row[20]
             result['projects'].append({
-                'isDefaultProject': str(row[8]).lower(),
-                'isActive':         str(row[9]).lower(),
-                'projectName':      row[10] or '',
-                'jobType':          row[11] or '',
-                'description':      row[12] or '',
-                'streetAddress':    row[13] or '',
-                'streetAddress2':   row[14] or '',
-                'city':             row[15] or '',
-                'state':            row[16] or '',
-                'zipCode':          row[17] or '',
-                'projectId':        row[18],
+                'isDefaultProject':  str(row[8]).lower(),
+                'isActive':          str(row[9]).lower(),
+                'projectName':       row[10] or '',
+                'jobType':           row[11] or '',
+                'description':       row[12] or '',
+                'streetAddress':     row[13] or '',
+                'streetAddress2':    row[14] or '',
+                'city':              row[15] or '',
+                'state':             row[16] or '',
+                'zipCode':           row[17] or '',
+                'resolutionDetail':  row[18] or '',
+                'resolved':          str(row[19]).lower(),
+                'projectId':         project_id,
+                'searchResultIds':   search_result_ids_by_project.get(project_id, []),
             })
 
         logger.info('get_user_profile: found userId=%s with %d project(s)', result['userId'], len(result['projects']))

@@ -3,13 +3,14 @@ CREATE SCHEMA IF NOT EXISTS userinfo;
 CREATE TABLE IF NOT EXISTS userinfo."User"
 (
     "UserId"      SERIAL       PRIMARY KEY,
-    "Username"    VARCHAR(50)  NOT NULL,
     "AppleId"     VARCHAR(255) UNIQUE,
     "GoogleId"    VARCHAR(255) UNIQUE,
     "AvatarUrl"   VARCHAR(500),
     "Email"       VARCHAR(100) NOT NULL UNIQUE,
     "FirstName"   VARCHAR(50),
     "LastName"    VARCHAR(50),
+    "Preference"  VARCHAR(10)  NOT NULL DEFAULT 'CONCISE'
+                  CHECK ("Preference" IN ('CONCISE', 'DETAIL')),
     "CreatedAt"   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -27,7 +28,18 @@ CREATE TABLE IF NOT EXISTS userinfo."Project"
     "City"             VARCHAR(100),
     "State"            VARCHAR(50),
     "ZipCode"          VARCHAR(20),
+    "ResolutionDetail" VARCHAR(255),
+    "Resolved"         BOOLEAN      NOT NULL DEFAULT FALSE,
     "CreatedAt"        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS userinfo."SearchResult"
+(
+    "SearchResultId"  SERIAL       PRIMARY KEY,
+    "ProjectId"       INT          NOT NULL REFERENCES userinfo."Project"("ProjectId"),
+    "SearchQuestion"  TEXT         NOT NULL,
+    "SearchResult"    TEXT         NOT NULL,
+    "CreatedAt"       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS userinfo."Conversation"
@@ -47,9 +59,19 @@ CREATE TABLE IF NOT EXISTS userinfo."Message"
     "CreatedAt"       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Migration guard: CREATE TABLE IF NOT EXISTS above no-ops on tables that already
+-- exist, so column changes to already-provisioned tables must be applied here,
+-- idempotently, on every run.
+ALTER TABLE userinfo."User" DROP COLUMN IF EXISTS "Username";
+ALTER TABLE userinfo."User" ADD COLUMN IF NOT EXISTS "Preference" VARCHAR(10) NOT NULL DEFAULT 'CONCISE'
+    CHECK ("Preference" IN ('CONCISE', 'DETAIL'));
+
+ALTER TABLE userinfo."Project" ADD COLUMN IF NOT EXISTS "ResolutionDetail" VARCHAR(255);
+ALTER TABLE userinfo."Project" ADD COLUMN IF NOT EXISTS "Resolved" BOOLEAN NOT NULL DEFAULT FALSE;
+
 INSERT INTO userinfo."User"
-("Username", "AppleId", "Email", "FirstName", "LastName")
-VALUES ('patpang71', 'patpang71@gmail.com', 'patpang71@gmail.com', 'John', 'Doe')
+("AppleId", "Email", "FirstName", "LastName")
+VALUES ('patpang71@gmail.com', 'patpang71@gmail.com', 'John', 'Doe')
 ON CONFLICT ("Email") DO NOTHING;
 
 INSERT INTO userinfo."Project"
