@@ -2,8 +2,9 @@
 
 An AI-powered home repair assistant. A LangGraph agent (running on Amazon Bedrock / Nova) walks a
 user through picking which home-repair project they're working on and then helps diagnose and fix
-the issue, backed by a Postgres-based user/project store and a Bedrock Knowledge Base for reference
-material.
+the issue, backed by a Postgres-based user/project store, a Bedrock Knowledge Base for reference
+material (falling back to Tavily web search), and Amazon Bedrock Guardrails for content safety and
+answer-quality checks.
 
 ## Architecture
 
@@ -12,10 +13,14 @@ Deployed as a set of AWS CDK stacks (see [bin/app.ts](bin/app.ts)):
 - **VpcStack** — shared VPC for the Lambdas and databases.
 - **RagDatabaseStack** — Aurora Postgres cluster (pgvector) backing the Bedrock Knowledge Base.
 - **PdfBucketStack** / **KnowledgeBaseStack** — S3 bucket of reference PDFs and the Bedrock
-  Knowledge Base built from them.
+  Knowledge Base built from them. Dropping a `.pdf` into the bucket auto-triggers a KB sync
+  ([lambdas/trigger-kb-sync](lambdas/trigger-kb-sync)).
 - **UserInfoDatabaseStack** — Postgres schema for users, projects, and saved conversations.
 - **McpServerStack** — `homerepair-mcp-server` Lambda, a tool server (get/add/update user & project
   data) invoked over the Lambda `tools/call` protocol.
+- **GuardrailStack** — an Amazon Bedrock Guardrail ([lib/guardrail-stack.ts](lib/guardrail-stack.ts))
+  enforcing profanity filtering, PII protection, and a contextual grounding check on home_repair
+  answers. See [Guardrails](#guardrails) below.
 - **LangGraphAgentStack** — `langgraph-agent` Lambda, the conversational agent described below.
 - **ApiStack** — API Gateway in front of the LangGraph agent Lambda, authenticated via JWT
   (Sign in with Apple).
@@ -46,15 +51,53 @@ project_update ◄────────────────────�
   │  MCP tools), then hands off to home_repair
   ▼
 home_repair
-  │  gathers the specific issue, optionally searches the web (Tavily) for
-  │  diagnostic help, and answers — using any uploaded photo (S3) as context
+  │  gathers the specific issue (using any uploaded photo (S3) as context), and on the first
+  │  turn for a new issue, opens with the project's last saved resolution (if any).
+  │  When ready to answer: queries the Bedrock Knowledge Base first; if nothing scores above
+  │  KB_RETRIEVAL_MIN_SCORE, falls back to a Tavily web search. The answer is then checked
+  │  against that search context via the guardrail's contextual grounding check.
+  ├── answer grounded in search results ─────► check_result
+  └── no search needed, or search context failed the grounding check ─► stays on home_repair
+                                                │
+check_result ◄───────────────────────────────────┘
+  │  asks "did that resolve it?" and classifies the reply, saving the resolution via the
+  │  MCP tool `update_resolution`
+  ├── YES ───────────────────────────► orchestrator (asks intent again)
+  └── NO / UNCLEAR ──────────────────► home_repair (keep troubleshooting) / re-asks
   ▼
  END (response returned to the client; graph state saved for the next turn)
 ```
 
 Node implementations live in [lambdas/langgraph-agent/nodes/](lambdas/langgraph-agent/nodes/):
-`initial_verification.py`, `orchestrator.py`, `project_update.py`, `home_repair.py`. The graph
-itself is wired up in [graph.py](lambdas/langgraph-agent/graph.py).
+`initial_verification.py`, `orchestrator.py`, `project_update.py`, `home_repair.py`,
+`check_result.py`. The graph itself is wired up in [graph.py](lambdas/langgraph-agent/graph.py).
+
+## Guardrails
+
+The `GuardrailStack` ([lib/guardrail-stack.ts](lib/guardrail-stack.ts)) configures a single Bedrock
+Guardrail with three policies:
+
+- **Word filter** — the managed `PROFANITY` list.
+- **Sensitive information** — `EMAIL`/`PHONE` are masked (`ANONYMIZE`); Social Security numbers,
+  credit/debit card numbers, bank account numbers, passwords, and AWS access/secret keys are
+  blocked outright. `NAME`/`ADDRESS` are intentionally *not* filtered — the app legitimately
+  discusses project addresses and user names as part of normal conversation.
+- **Contextual grounding check** — flags `home_repair` answers that aren't backed by the search
+  context they were generated from (`GROUNDING`) or that don't address the user's question
+  (`RELEVANCE`). Thresholds are `GUARDRAIL_GROUNDING_THRESHOLD` / `GUARDRAIL_RELEVANCE_THRESHOLD`
+  in [lib/constants.ts](lib/constants.ts) (default `0.5`, range `0`–`0.99`).
+
+Wiring differs by policy, since they attach to the model call differently:
+
+- Word filter and sensitive-information checks run automatically on every LLM call — the guardrail
+  ID/version are passed straight into `ChatBedrock` in
+  [llm.py](lambdas/langgraph-agent/llm.py).
+- The grounding check can't run that way (Bedrock needs the search context and user query tagged
+  separately from the model's response). `home_repair.py`'s `_grounding_check` calls the
+  standalone `ApplyGuardrail` API directly, after generating the answer, passing the search
+  context as `grounding_source` and the user's question as `query`. If it fails, the response is
+  replaced with the guardrail's blocked-output message and the turn skips `check_result` (no
+  "did that resolve it?" — the agent isn't confident the answer is valid).
 
 ## Logging
 

@@ -27,6 +27,10 @@ KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '')
 KB_RETRIEVAL_MAX_RESULTS = int(os.environ.get('KB_RETRIEVAL_MAX_RESULTS', '5'))
 KB_RETRIEVAL_MIN_SCORE = float(os.environ.get('KB_RETRIEVAL_MIN_SCORE', '0.5'))
 
+_bedrock_runtime = boto3.client('bedrock-runtime')
+GUARDRAIL_ID = os.environ.get('GUARDRAIL_ID', '')
+GUARDRAIL_VERSION = os.environ.get('GUARDRAIL_VERSION', '')
+
 _SYSTEM = """You are an expert home repair assistant with deep knowledge of plumbing, electrical,
 HVAC, carpentry, roofing, and general home maintenance.
 
@@ -108,6 +112,10 @@ def home_repair_node(state: AgentState) -> AgentState:
     response = llm.invoke(lc_messages).content
     logger.info('home_repair_node responding sessionId=%s responseLen=%d', state['session_id'], len(response))
 
+    grounded = True
+    if search_context:
+        grounded, response = _grounding_check(state['session_id'], search_context, search_query, response)
+
     intro_shown = state.get('home_repair_intro_shown', False)
     if not intro_shown:
         intro = _resolution_intro(state.get('user_profile'))
@@ -118,7 +126,7 @@ def home_repair_node(state: AgentState) -> AgentState:
     current_agent = 'home_repair'
     pending_search_result = None
 
-    if search_context:
+    if search_context and grounded:
         project_id = _default_project_id(state.get('user_profile'))
         if project_id:
             save_result = call_mcp_tool('save_search_result', {
@@ -195,6 +203,39 @@ def _build_content(state: AgentState):
     except Exception:
         logger.exception('Failed to load photo from S3 key=%s', photo_key)
         return text
+
+
+def _grounding_check(session_id: str, search_context: str, search_query: str, response: str):
+    """Checks the generated response against its search context via the guardrail's
+    contextual grounding policy. Returns (grounded, response) — response is replaced
+    with the guardrail's blocked-output message when the check fails."""
+    if not GUARDRAIL_ID:
+        return True, response
+
+    try:
+        result = _bedrock_runtime.apply_guardrail(
+            guardrailIdentifier=GUARDRAIL_ID,
+            guardrailVersion=GUARDRAIL_VERSION,
+            source='OUTPUT',
+            content=[
+                {'text': {'text': search_context, 'qualifiers': ['grounding_source']}},
+                {'text': {'text': search_query, 'qualifiers': ['query']}},
+                {'text': {'text': response}},
+            ],
+        )
+        action = result.get('action')
+        logger.info('Grounding check sessionId=%s action=%s', session_id, action)
+        if action == 'GUARDRAIL_INTERVENED':
+            outputs = result.get('outputs', [])
+            fallback = outputs[0]['text'] if outputs else (
+                "I couldn't find a reliable, well-supported answer to that — "
+                "could you rephrase your question or give me more detail?"
+            )
+            return False, fallback
+        return True, response
+    except Exception:
+        logger.exception('Grounding check failed sessionId=%s', session_id)
+        return True, response
 
 
 def _kb_search(query: str) -> str:

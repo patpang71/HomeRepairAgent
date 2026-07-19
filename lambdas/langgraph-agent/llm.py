@@ -7,6 +7,8 @@ from langchain_core.callbacks import BaseCallbackHandler
 logger = logging.getLogger(__name__)
 
 MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'amazon.nova-pro-v1:0')
+GUARDRAIL_ID = os.environ.get('GUARDRAIL_ID', '')
+GUARDRAIL_VERSION = os.environ.get('GUARDRAIL_VERSION', '')
 
 _llm = None
 _MAX_LOG_CHARS = 2000
@@ -55,11 +57,26 @@ def get_llm() -> ChatBedrock:
     global _llm
     if _llm is None:
         region = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
-        logger.info('Initializing Bedrock LLM model=%s region=%s', MODEL_ID, region)
-        _llm = ChatBedrock(
-            model_id=MODEL_ID,
-            region_name=region,
-            model_kwargs={'maxTokens': 1024},
-            callbacks=[_LoggingCallbackHandler()],
+        logger.info(
+            'Initializing Bedrock LLM model=%s region=%s guardrail=%s',
+            MODEL_ID, region, GUARDRAIL_ID or 'none',
         )
+        kwargs = {
+            'model_id': MODEL_ID,
+            'region_name': region,
+            'model_kwargs': {'maxTokens': 1024},
+            'callbacks': [_LoggingCallbackHandler()],
+        }
+        if GUARDRAIL_ID:
+            # Applies the word-filter (profanity) and sensitive-info (PII) policies to
+            # every prompt/response that goes through this LLM. The contextual grounding
+            # policy is also configured on this guardrail, but it needs the grounding
+            # source/query tagged explicitly — see nodes/home_repair.py's use of the
+            # standalone ApplyGuardrail API for that check.
+            kwargs['guardrails'] = {
+                'guardrailIdentifier': GUARDRAIL_ID,
+                'guardrailVersion': GUARDRAIL_VERSION,
+                'trace': True,
+            }
+        _llm = ChatBedrock(**kwargs)
     return _llm

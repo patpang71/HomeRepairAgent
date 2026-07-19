@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { AWS_REGION, PROJECT_NAME } from '../lib/constants';
 import { ApiStack } from '../lib/api-stack';
+import { GuardrailStack } from '../lib/guardrail-stack';
 import { KnowledgeBaseStack } from '../lib/knowledge-base-stack';
 import { LangGraphAgentStack } from '../lib/langgraph-agent-stack';
 import { McpServerStack } from '../lib/mcp-server-stack';
@@ -50,6 +51,8 @@ const mcpServerStack = new McpServerStack(app, `${PROJECT_NAME}-McpServer`, {
 });
 mcpServerStack.addDependency(ragDatabaseStack);
 
+const guardrailStack = new GuardrailStack(app, `${PROJECT_NAME}-Guardrail`, { env });
+
 const langGraphAgentStack = new LangGraphAgentStack(app, `${PROJECT_NAME}-LangGraphAgent`, {
   env,
   vpc: vpcStack.vpc,
@@ -57,10 +60,14 @@ const langGraphAgentStack = new LangGraphAgentStack(app, `${PROJECT_NAME}-LangGr
   dbSecret: ragDatabaseStack.dbSecret,
   knowledgeBaseId: knowledgeBaseStack.knowledgeBase.attrKnowledgeBaseId,
   knowledgeBaseArn: knowledgeBaseStack.knowledgeBase.attrKnowledgeBaseArn,
+  guardrailId: guardrailStack.guardrail.attrGuardrailId,
+  guardrailVersion: guardrailStack.guardrailVersion.attrVersion,
+  guardrailArn: guardrailStack.guardrail.attrGuardrailArn,
 });
 langGraphAgentStack.addDependency(vpcStack);
 langGraphAgentStack.addDependency(mcpServerStack);
 langGraphAgentStack.addDependency(knowledgeBaseStack);
+langGraphAgentStack.addDependency(guardrailStack);
 
 const apiStack = new ApiStack(app, `${PROJECT_NAME}-Api`, {
   env,

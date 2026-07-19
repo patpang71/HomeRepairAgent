@@ -21,6 +21,9 @@ interface LangGraphAgentStackProps extends cdk.StackProps {
   dbSecret: secretsmanager.ISecret;
   knowledgeBaseId: string;
   knowledgeBaseArn: string;
+  guardrailId: string;
+  guardrailVersion: string;
+  guardrailArn: string;
 }
 
 export class LangGraphAgentStack extends cdk.Stack {
@@ -29,7 +32,10 @@ export class LangGraphAgentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LangGraphAgentStackProps) {
     super(scope, id, { ...props, env: { ...props.env, region: AWS_REGION } });
 
-    const { vpc, mcpFunctionArn, dbSecret, knowledgeBaseId, knowledgeBaseArn } = props;
+    const {
+      vpc, mcpFunctionArn, dbSecret, knowledgeBaseId, knowledgeBaseArn,
+      guardrailId, guardrailVersion, guardrailArn,
+    } = props;
 
     // ── Session table ────────────────────────────────────────────────────────
     const sessionTable = new dynamodb.Table(this, 'SessionTable', {
@@ -68,6 +74,8 @@ export class LangGraphAgentStack extends cdk.Stack {
         KNOWLEDGE_BASE_ID: knowledgeBaseId,
         KB_RETRIEVAL_MAX_RESULTS: String(KB_RETRIEVAL_MAX_RESULTS),
         KB_RETRIEVAL_MIN_SCORE: String(KB_RETRIEVAL_MIN_SCORE),
+        GUARDRAIL_ID: guardrailId,
+        GUARDRAIL_VERSION: guardrailVersion,
         LOG_LEVEL: 'INFO',
       },
     });
@@ -98,6 +106,11 @@ export class LangGraphAgentStack extends cdk.Stack {
     this.agentFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:Retrieve'],
       resources: [knowledgeBaseArn],
+    }));
+
+    this.agentFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:ApplyGuardrail'],
+      resources: [guardrailArn],
     }));
 
     new cdk.CfnOutput(this, 'AgentFunctionArn', {
