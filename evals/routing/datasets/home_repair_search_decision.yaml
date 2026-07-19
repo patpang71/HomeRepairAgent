@@ -1,0 +1,101 @@
+# Golden dataset for decide_search() in nodes/home_repair.py — the classifier that
+# decides whether enough is known (part of the home AND specific problem) to search,
+# which is what ultimately gates the home_repair -> check_result handoff (assuming the
+# search itself succeeds and the answer passes the grounding check — see the eval
+# runner's docstring for why this test only covers the classifier, not that full path).
+#
+# Fields:
+#   id                     unique short identifier
+#   history                conversation so far, as a list of {role, content} turns —
+#                          role is 'user' or 'assistant', matching state['messages']
+#   expected_should_search true | false
+#   difficulty             easy | hard
+#   notes                  (optional) why a hard case is hard
+
+- id: false_no_problem
+  history:
+    - role: user
+      content: "I want to talk about my kitchen"
+  expected_should_search: false
+  difficulty: easy
+  notes: "Part of the home given, but no problem stated at all."
+
+- id: false_greeting
+  history:
+    - role: user
+      content: "hi"
+  expected_should_search: false
+  difficulty: easy
+
+- id: true_single_turn_specific
+  history:
+    - role: user
+      content: "my water heater is leaking from the bottom and making a popping noise"
+  expected_should_search: true
+  difficulty: easy
+  notes: "Part (water heater) and specific problem (leak + popping noise) both present in one turn."
+
+- id: true_multi_turn_sink
+  history:
+    - role: user
+      content: "my kitchen sink is broken"
+    - role: assistant
+      content: "What's wrong with it exactly?"
+    - role: user
+      content: "it's leaking under the cabinet and won't stop dripping"
+  expected_should_search: true
+  difficulty: easy
+
+- id: true_multi_turn_roof
+  history:
+    - role: user
+      content: "my roof has an issue"
+    - role: assistant
+      content: "What's going on with it?"
+    - role: user
+      content: "there are shingles missing after the storm and I can see the underlayment"
+  expected_should_search: true
+  difficulty: easy
+
+- id: hard_false_vague_broken
+  history:
+    - role: user
+      content: "my water heater is broken"
+  expected_should_search: false
+  difficulty: hard
+  notes: "'broken' alone isn't a specific problem — tempts the model to consider it enough."
+
+- id: hard_false_vague_distress
+  history:
+    - role: user
+      content: "something in my house is wrong and I don't know what to do"
+  expected_should_search: false
+  difficulty: hard
+  notes: "Emotionally specific but structurally vague — no part of the home named at all."
+
+- id: hard_true_long_rambling
+  history:
+    - role: user
+      content: >
+        my HVAC has been making a weird noise for weeks and I've already tried cleaning
+        the filter and checking the vents but it hasn't helped and honestly I'm not sure
+        what else to try at this point
+  expected_should_search: true
+  difficulty: hard
+  notes: "Part (HVAC) and problem (weird noise) are both present but buried in a long turn."
+
+- id: hard_false_single_word
+  history:
+    - role: user
+      content: "electrical"
+  expected_should_search: false
+  difficulty: hard
+  notes: "Names a part of the home only, no problem — one-word replies tempt premature search."
+
+- id: hard_true_distracting_clause
+  history:
+    - role: user
+      content: "my bathroom faucet has low water pressure, and by the way when will you be done"
+  expected_should_search: true
+  difficulty: hard
+  notes: "Part + specific problem are present but followed by an unrelated distracting clause."

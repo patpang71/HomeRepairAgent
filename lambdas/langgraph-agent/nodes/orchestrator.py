@@ -10,10 +10,16 @@ logger = logging.getLogger(__name__)
 
 _INTENT_PROMPT = """Classify the user's reply to the question "Would you like to switch to a different project, \
 or do you have a home repair question?".
-Respond with exactly one word — PROJECT, QUESTION, or IRRELEVANT:
-- PROJECT: user wants to switch/change their project
-- QUESTION: user wants to ask about a home repair issue, or is ready to describe their problem
-- IRRELEVANT: the reply does not answer the question"""
+
+Each of the user's "projects" is a specific home or property they're working on. Respond with
+exactly one word — PROJECT, QUESTION, or IRRELEVANT:
+- PROJECT: user wants to switch/change their project — including indirect references to a
+  different home or property (e.g. "my other house", "the rental")
+- QUESTION: user is describing, or is ready to describe, a home repair problem — not just any
+  question. A reply that's phrased as a question but unrelated to home repair (e.g. "what's the
+  weather like") is IRRELEVANT, not QUESTION.
+- IRRELEVANT: the reply does not clearly commit to either option — including replies that
+  decline, defer, or stay noncommittal (e.g. "not right now", "maybe later")"""
 
 ASK_INTENT_RESPONSE = (
     "Would you like to switch to a different project, or do you have a home repair question I can help with?"
@@ -41,18 +47,29 @@ def _ask_intent(state: AgentState) -> AgentState:
     }
 
 
-def _classify_intent(state: AgentState) -> AgentState:
+def classify_intent(user_message: str) -> str:
+    """Classifies a reply to the switch-project-or-question prompt.
+    Returns exactly one of 'QUESTION', 'PROJECT', 'IRRELEVANT'."""
     llm = get_llm()
     lc_messages = [
         SystemMessage(content=_INTENT_PROMPT),
-        HumanMessage(content=state['user_message'] or ''),
+        HumanMessage(content=user_message or ''),
     ]
-    classification = llm.invoke(lc_messages).content.strip().upper()
+    raw = llm.invoke(lc_messages).content.strip().upper()
+    if 'QUESTION' in raw:
+        return 'QUESTION'
+    if 'PROJECT' in raw:
+        return 'PROJECT'
+    return 'IRRELEVANT'
+
+
+def _classify_intent(state: AgentState) -> AgentState:
+    classification = classify_intent(state['user_message'])
     logger.info('orchestrator classification sessionId=%s result=%s', state['session_id'], classification)
 
     history = state['messages'] + [{'role': 'user', 'content': state['user_message']}]
 
-    if 'QUESTION' in classification:
+    if classification == 'QUESTION':
         response = "Great! What part of your home needs attention, and what's the issue?"
         history = history + [{'role': 'assistant', 'content': response}]
         return {
@@ -64,7 +81,7 @@ def _classify_intent(state: AgentState) -> AgentState:
             'home_repair_intro_shown': False,
         }
 
-    if 'PROJECT' in classification:
+    if classification == 'PROJECT':
         # Refetch the profile so we're working off current project data, not
         # whatever was cached in state at session start.
         profile = call_mcp_tool('get_user_profile', {'appleId': state['apple_id']})

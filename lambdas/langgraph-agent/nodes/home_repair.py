@@ -75,15 +75,7 @@ def home_repair_node(state: AgentState) -> AgentState:
     lc_messages.append(HumanMessage(content=current_content))
 
     # Ask LLM whether to search or keep gathering info
-    decision_messages = lc_messages + [HumanMessage(content=_SEARCH_DECISION)]
-    decision_raw = llm.invoke(decision_messages).content.strip()
-
-    try:
-        decision = json.loads(decision_raw)
-    except Exception:
-        logger.warning('Search-decision JSON parse failed sessionId=%s raw=%r', state['session_id'], decision_raw)
-        decision = {'should_search': False, 'ready_to_answer': False}
-
+    decision = decide_search(lc_messages, state['session_id'])
     logger.info('home_repair search decision sessionId=%s decision=%s', state['session_id'], decision)
 
     preference = (state.get('user_profile') or {}).get('preference', 'CONCISE')
@@ -155,6 +147,20 @@ def home_repair_node(state: AgentState) -> AgentState:
         'pending_search_result': pending_search_result,
         'home_repair_intro_shown': intro_shown,
     }
+
+
+def decide_search(lc_messages: list, session_id: str = None) -> dict:
+    """Given the built conversation (system + history + current turn), asks the LLM whether
+    there's enough info to search. Returns {'should_search': bool, 'search_query': str|None,
+    'ready_to_answer': bool} — defaults to should_search=False if the LLM's reply isn't valid JSON."""
+    llm = get_llm()
+    decision_messages = lc_messages + [HumanMessage(content=_SEARCH_DECISION)]
+    decision_raw = llm.invoke(decision_messages).content.strip()
+    try:
+        return json.loads(decision_raw)
+    except Exception:
+        logger.warning('Search-decision JSON parse failed sessionId=%s raw=%r', session_id, decision_raw)
+        return {'should_search': False, 'ready_to_answer': False}
 
 
 def _default_project_id(profile: dict):

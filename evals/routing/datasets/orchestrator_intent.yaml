@@ -1,0 +1,123 @@
+# Golden dataset for classify_intent() in nodes/orchestrator.py — the classifier that
+# decides whether a reply to "switch project, or home repair question?" routes the
+# conversation to home_repair (QUESTION), project_update (PROJECT), or re-asks (IRRELEVANT).
+#
+# Fields:
+#   id          unique short identifier, used in failure/flaky reports
+#   input       the user's reply, as it would arrive in state['user_message']
+#   expected    QUESTION | PROJECT | IRRELEVANT
+#   difficulty  easy | hard — reported separately so regressions on hard cases aren't
+#               hidden by a stable blended accuracy number
+#   notes       (optional) why a hard case is hard
+
+- id: q_sink
+  input: "my kitchen sink is leaking"
+  expected: QUESTION
+  difficulty: easy
+
+- id: q_water_heater
+  input: "I have a problem with my water heater"
+  expected: QUESTION
+  difficulty: easy
+
+- id: q_yes_repair
+  input: "yes, I need help with a home repair issue"
+  expected: QUESTION
+  difficulty: easy
+
+- id: q_roof
+  input: "my roof is leaking every time it storms"
+  expected: QUESTION
+  difficulty: easy
+
+- id: p_switch
+  input: "I want to switch to a different project"
+  expected: PROJECT
+  difficulty: easy
+
+- id: p_other
+  input: "can I work on my other project instead"
+  expected: PROJECT
+  difficulty: easy
+
+- id: p_please
+  input: "switch projects please"
+  expected: PROJECT
+  difficulty: easy
+
+- id: i_weather
+  input: "what's the weather like today"
+  expected: IRRELEVANT
+  difficulty: easy
+
+- id: i_thanks
+  input: "thanks for your help"
+  expected: IRRELEVANT
+  difficulty: easy
+
+- id: i_haha
+  input: "haha ok"
+  expected: IRRELEVANT
+  difficulty: easy
+
+- id: h_bare_no
+  input: "no"
+  expected: IRRELEVANT
+  difficulty: hard
+  notes: "Bare negative doesn't answer either option in the prompt."
+
+- id: h_bare_yes
+  input: "yes"
+  expected: IRRELEVANT
+  difficulty: hard
+  notes: "Bare affirmative doesn't specify which of the two options — ambiguous on purpose."
+
+- id: h_not_now
+  input: "not right now"
+  expected: IRRELEVANT
+  difficulty: hard
+
+- id: h_other_house
+  input: "my other house"
+  expected: PROJECT
+  difficulty: hard
+  notes: "Implies switching to a different project without using the word 'switch'."
+
+- id: h_no_specific_question
+  input: "I don't have a specific question but there's definitely something wrong with my heating"
+  expected: QUESTION
+  difficulty: hard
+  notes: "Explicitly denies having a 'question' while describing a concrete problem."
+
+- id: h_emoji
+  input: "🤷"
+  expected: IRRELEVANT
+  difficulty: hard
+
+- id: h_spanish
+  input: "quiero cambiar de proyecto"
+  expected: PROJECT
+  difficulty: hard
+  notes: "Non-English input ('I want to switch projects') — tests robustness beyond English phrasing."
+
+# Held-out variants of the three patterns the _INTENT_PROMPT update (2026-07-19) targeted —
+# different wording than the cases that originally failed, to check the fix generalizes to the
+# underlying pattern rather than just the specific failing strings.
+
+- id: h_unrelated_question_variant
+  input: "do you have any pets"
+  expected: IRRELEVANT
+  difficulty: hard
+  notes: "Held-out variant of the 'grammatically a question but unrelated to home repair' pattern."
+
+- id: h_noncommittal_variant
+  input: "I'll think about it"
+  expected: IRRELEVANT
+  difficulty: hard
+  notes: "Held-out variant of the 'declines/defers without committing' pattern."
+
+- id: h_indirect_project_variant
+  input: "the rental property"
+  expected: PROJECT
+  difficulty: hard
+  notes: "Held-out variant of the 'indirect reference to a different home/property' pattern."
