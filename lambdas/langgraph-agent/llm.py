@@ -76,7 +76,7 @@ def get_llm() -> ChatBedrock:
             kwargs['guardrails'] = {
                 'guardrailIdentifier': GUARDRAIL_ID,
                 'guardrailVersion': GUARDRAIL_VERSION,
-                'trace': True,
+                'trace': 'enabled',
             }
         _llm = ChatBedrock(**kwargs)
     return _llm
