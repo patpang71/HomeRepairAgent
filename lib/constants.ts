@@ -22,6 +22,12 @@ export const BEDROCK_EMBEDDING_MODEL_ID = 'amazon.titan-embed-text-v2:0';
 // Vector dimensions for Titan Embeddings v2
 export const EMBEDDING_DIMENSIONS = 1024;
 
+// Knowledge base retrieval — max chunks to pull back per query, and the minimum
+// relevance score (0-1) a chunk needs to count as a "found" answer. Below this
+// threshold the agent falls back to Tavily web search.
+export const KB_RETRIEVAL_MAX_RESULTS = 5;
+export const KB_RETRIEVAL_MIN_SCORE = 0.5;
+
 // S3 bucket for user-uploaded photos (auto-deleted after 24 h)
 export const UPLOAD_BUCKET_NAME = 'home-repair-agent-uploads';
 

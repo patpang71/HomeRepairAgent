@@ -7,12 +7,20 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { Construct } from 'constructs';
-import { AWS_REGION, BEDROCK_AGENT_MODEL_ID, UPLOAD_BUCKET_NAME } from './constants';
+import {
+  AWS_REGION,
+  BEDROCK_AGENT_MODEL_ID,
+  KB_RETRIEVAL_MAX_RESULTS,
+  KB_RETRIEVAL_MIN_SCORE,
+  UPLOAD_BUCKET_NAME,
+} from './constants';
 
 interface LangGraphAgentStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
   mcpFunctionArn: string;
   dbSecret: secretsmanager.ISecret;
+  knowledgeBaseId: string;
+  knowledgeBaseArn: string;
 }
 
 export class LangGraphAgentStack extends cdk.Stack {
@@ -21,7 +29,7 @@ export class LangGraphAgentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LangGraphAgentStackProps) {
     super(scope, id, { ...props, env: { ...props.env, region: AWS_REGION } });
 
-    const { vpc, mcpFunctionArn, dbSecret } = props;
+    const { vpc, mcpFunctionArn, dbSecret, knowledgeBaseId, knowledgeBaseArn } = props;
 
     // ── Session table ────────────────────────────────────────────────────────
     const sessionTable = new dynamodb.Table(this, 'SessionTable', {
@@ -57,6 +65,9 @@ export class LangGraphAgentStack extends cdk.Stack {
         UPLOAD_BUCKET_NAME,
         TAVILY_API_KEY_PARAM: '/HomeRepairAgent/Tavily/ApiKey',
         DB_SECRET_ARN: dbSecret.secretArn,
+        KNOWLEDGE_BASE_ID: knowledgeBaseId,
+        KB_RETRIEVAL_MAX_RESULTS: String(KB_RETRIEVAL_MAX_RESULTS),
+        KB_RETRIEVAL_MIN_SCORE: String(KB_RETRIEVAL_MIN_SCORE),
         LOG_LEVEL: 'INFO',
       },
     });
@@ -82,6 +93,11 @@ export class LangGraphAgentStack extends cdk.Stack {
     this.agentFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['ssm:GetParameter'],
       resources: [`arn:aws:ssm:${AWS_REGION}:*:parameter/HomeRepairAgent/Tavily/*`],
+    }));
+
+    this.agentFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:Retrieve'],
+      resources: [knowledgeBaseArn],
     }));
 
     new cdk.CfnOutput(this, 'AgentFunctionArn', {

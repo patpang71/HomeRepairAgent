@@ -18,6 +18,15 @@ UPLOAD_BUCKET = os.environ.get('UPLOAD_BUCKET_NAME', '')
 _TAVILY_KEY_PARAM = os.environ.get('TAVILY_API_KEY_PARAM', '/HomeRepairAgent/Tavily/ApiKey')
 _tavily_key_loaded = False
 
+_bedrock_agent_runtime = boto3.client('bedrock-agent-runtime')
+KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '')
+# A knowledge-base chunk counts as "found" when at least one retrieved result
+# scores >= KB_RETRIEVAL_MIN_SCORE (0-1 relevance score from Bedrock); below
+# that threshold we treat the KB as not having an answer and fall back to
+# Tavily web search. KB_RETRIEVAL_MAX_RESULTS caps how many chunks we pull back.
+KB_RETRIEVAL_MAX_RESULTS = int(os.environ.get('KB_RETRIEVAL_MAX_RESULTS', '5'))
+KB_RETRIEVAL_MIN_SCORE = float(os.environ.get('KB_RETRIEVAL_MIN_SCORE', '0.5'))
+
 _SYSTEM = """You are an expert home repair assistant with deep knowledge of plumbing, electrical,
 HVAC, carpentry, roofing, and general home maintenance.
 
@@ -77,8 +86,18 @@ def home_repair_node(state: AgentState) -> AgentState:
 
     search_query = decision.get('search_query')
     search_context = ''
+    search_source = None
     if decision.get('should_search') and search_query:
-        search_context = _tavily_search(search_query, preference)
+        search_context = _kb_search(search_query)
+        if search_context:
+            search_source = 'knowledge_base'
+        else:
+            search_context = _tavily_search(search_query, preference)
+            search_source = 'tavily'
+        logger.info(
+            'home_repair search sessionId=%s source=%s query=%r',
+            state['session_id'], search_source, search_query,
+        )
 
     if search_context:
         lc_messages.append(HumanMessage(
@@ -176,6 +195,36 @@ def _build_content(state: AgentState):
     except Exception:
         logger.exception('Failed to load photo from S3 key=%s', photo_key)
         return text
+
+
+def _kb_search(query: str) -> str:
+    if not KNOWLEDGE_BASE_ID:
+        return ''
+
+    logger.info('KB retrieve query=%r knowledgeBaseId=%s', query, KNOWLEDGE_BASE_ID)
+    try:
+        response = _bedrock_agent_runtime.retrieve(
+            knowledgeBaseId=KNOWLEDGE_BASE_ID,
+            retrievalQuery={'text': query},
+            retrievalConfiguration={
+                'vectorSearchConfiguration': {'numberOfResults': KB_RETRIEVAL_MAX_RESULTS},
+            },
+        )
+        results = response.get('retrievalResults', [])
+        found = [r for r in results if r.get('score', 0) >= KB_RETRIEVAL_MIN_SCORE]
+        logger.info(
+            'KB retrieve returned %d result(s), %d above min score %.2f',
+            len(results), len(found), KB_RETRIEVAL_MIN_SCORE,
+        )
+        if not found:
+            return ''
+
+        return '\n\n'.join(
+            r.get('content', {}).get('text', '') for r in found
+        )
+    except Exception:
+        logger.exception('KB retrieve failed query=%r', query)
+        return ''
 
 
 def _tavily_search(query: str, preference: str = 'CONCISE') -> str:

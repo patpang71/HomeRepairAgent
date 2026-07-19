@@ -55,9 +55,12 @@ const langGraphAgentStack = new LangGraphAgentStack(app, `${PROJECT_NAME}-LangGr
   vpc: vpcStack.vpc,
   mcpFunctionArn: mcpServerStack.mcpFn.functionArn,
   dbSecret: ragDatabaseStack.dbSecret,
+  knowledgeBaseId: knowledgeBaseStack.knowledgeBase.attrKnowledgeBaseId,
+  knowledgeBaseArn: knowledgeBaseStack.knowledgeBase.attrKnowledgeBaseArn,
 });
 langGraphAgentStack.addDependency(vpcStack);
 langGraphAgentStack.addDependency(mcpServerStack);
+langGraphAgentStack.addDependency(knowledgeBaseStack);
 
 const apiStack = new ApiStack(app, `${PROJECT_NAME}-Api`, {
   env,
